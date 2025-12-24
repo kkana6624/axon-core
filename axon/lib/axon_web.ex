@@ -52,6 +52,8 @@ defmodule AxonWeb do
     quote do
       use Phoenix.LiveView
 
+      on_mount {AxonWeb.LiveHooks.RemoteAddress, :default}
+
       unquote(html_helpers())
     end
   end

@@ -10,6 +10,10 @@ import Config
 config :axon,
   generators: [timestamp_type: :utc_datetime]
 
+config :axon, :remote_address,
+  allow_private: true,
+  allow_loopback: true
+
 # Configure the endpoint
 config :axon, AxonWeb.Endpoint,
   url: [host: "localhost"],

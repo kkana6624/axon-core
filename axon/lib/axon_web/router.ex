@@ -17,7 +17,15 @@ defmodule AxonWeb.Router do
   scope "/", AxonWeb do
     pipe_through :browser
 
+    get "/setup", SetupController, :index
     get "/", PageController, :home
+
+    live "/macro", MacroLive
+
+    if Mix.env() == :test do
+      live "/__test__/remote_address", TestRemoteAddressLive
+      live "/__test__/macro", MacroLive
+    end
   end
 
   # Other scopes may use custom stacks.
