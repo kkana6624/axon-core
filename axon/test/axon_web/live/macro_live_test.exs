@@ -3,9 +3,17 @@ defmodule AxonWeb.MacroLiveTest do
 
   import Phoenix.LiveViewTest
 
+  alias Axon.App.Execution.SingleRunner
+
+  defmodule EngineNoStepApi do
+    def available?, do: true
+  end
+
   setup do
     original = System.get_env("AXON_PROFILES_PATH")
     original_engine = Application.get_env(:axon, :macro_engine)
+    original_engine_module = Application.get_env(:axon, :macro_engine_module)
+    original_interval = Application.get_env(:axon, :tap_macro_min_interval_ms)
 
     on_exit(fn ->
       if is_nil(original) do
@@ -19,6 +27,27 @@ defmodule AxonWeb.MacroLiveTest do
       else
         Application.put_env(:axon, :macro_engine, original_engine)
       end
+
+      if is_nil(original_engine_module) do
+        Application.delete_env(:axon, :macro_engine_module)
+      else
+        Application.put_env(:axon, :macro_engine_module, original_engine_module)
+      end
+
+      if is_nil(original_interval) do
+        Application.delete_env(:axon, :tap_macro_min_interval_ms)
+      else
+        Application.put_env(:axon, :tap_macro_min_interval_ms, original_interval)
+      end
+
+      _ =
+        try do
+          SingleRunner.reset()
+        rescue
+          _ -> :ok
+        catch
+          _, _ -> :ok
+        end
     end)
 
     :ok
@@ -187,5 +216,276 @@ defmodule AxonWeb.MacroLiveTest do
       "message" => "engine failure",
       "request_id" => "00000000-0000-0000-0000-000000000007"
     })
+  end
+
+  test "AXON-LV-008 engine step API missing emits E_ENGINE_UNAVAILABLE", %{conn: conn} do
+    configure_ok!()
+    Application.put_env(:axon, :macro_engine_module, EngineNoStepApi)
+    {:ok, view, _html} = live(conn, ~p"/macro")
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-000000000008"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-000000000008"
+    })
+
+    assert_push_event_exact(view, "macro_result", %{
+      "status" => "error",
+      "error_code" => "E_ENGINE_UNAVAILABLE",
+      "message" => "engine unavailable",
+      "request_id" => "00000000-0000-0000-0000-000000000008"
+    })
+  end
+
+  test "AXON-EXEC-001 second tap_macro is rejected as busy while first is running", %{conn: conn} do
+    configure_ok!()
+    Application.put_env(:axon, :macro_engine, available: true, result: :ok, delay_ms: 200)
+
+    {:ok, view, _html} = live(conn, ~p"/macro")
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000A001"
+    })
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000A002"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-00000000A001"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => false,
+      "reason" => "busy",
+      "request_id" => "00000000-0000-0000-0000-00000000A002"
+    })
+
+    assert_push_event_exact(view, "macro_result", %{
+      "status" => "ok",
+      "request_id" => "00000000-0000-0000-0000-00000000A001"
+    }, 1_000)
+  end
+
+  test "AXON-EXEC-003 panic interrupts running macro and emits macro_result panic immediately", %{conn: conn} do
+    configure_ok!()
+    Application.put_env(:axon, :macro_engine, available: true, result: :ok, delay_ms: 1_000)
+
+    {:ok, view, _html} = live(conn, ~p"/macro")
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000B001"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-00000000B001"
+    })
+
+    render_hook(view, "panic", %{
+      "request_id" => "00000000-0000-0000-0000-00000000P001"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-00000000P001"
+    })
+
+    assert_push_event_exact(view, "macro_result", %{
+      "status" => "panic",
+      "request_id" => "00000000-0000-0000-0000-00000000B001"
+    }, 300)
+
+    %{proxy: {ref, _topic, _}} = view
+
+    refute_receive {^ref, {:push_event, "macro_result", %{"status" => "ok", "request_id" => "00000000-0000-0000-0000-00000000B001"}}},
+                   500
+  end
+
+  test "AXON-EXEC-004 after panic, next macro request is rejected until recovery (MVP: reject)", %{conn: conn} do
+    configure_ok!()
+    Application.put_env(:axon, :macro_engine, available: true, result: :ok, delay_ms: 1_000)
+
+    {:ok, view, _html} = live(conn, ~p"/macro")
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000C001"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-00000000C001"
+    })
+
+    render_hook(view, "panic", %{
+      "request_id" => "00000000-0000-0000-0000-00000000P002"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-00000000P002"
+    })
+
+    assert_push_event_exact(view, "macro_result", %{
+      "status" => "panic",
+      "request_id" => "00000000-0000-0000-0000-00000000C001"
+    }, 300)
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000C002"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => false,
+      "reason" => "busy",
+      "request_id" => "00000000-0000-0000-0000-00000000C002"
+    })
+  end
+
+  test "AXON-EXEC-002 repeat tap_macro within min interval is rejected (busy) even after completion", %{conn: conn} do
+    configure_ok!()
+    Application.put_env(:axon, :tap_macro_min_interval_ms, 1_000)
+    Application.put_env(:axon, :macro_engine, available: true, result: :ok, delay_ms: 0)
+
+    {:ok, view, _html} = live(conn, ~p"/macro")
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000D001"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-00000000D001"
+    })
+
+    assert_push_event_exact(view, "macro_result", %{
+      "status" => "ok",
+      "request_id" => "00000000-0000-0000-0000-00000000D001"
+    }, 1_000)
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000D002"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => false,
+      "reason" => "busy",
+      "request_id" => "00000000-0000-0000-0000-00000000D002"
+    })
+  end
+
+  test "AXON-WS-001 ack is immediate and timeout result includes request_id", %{conn: conn} do
+    configure_ok!()
+
+    original_timeout = Application.get_env(:axon, :macro_result_timeout_ms)
+
+    on_exit(fn ->
+      if is_nil(original_timeout) do
+        Application.delete_env(:axon, :macro_result_timeout_ms)
+      else
+        Application.put_env(:axon, :macro_result_timeout_ms, original_timeout)
+      end
+    end)
+
+    Application.put_env(:axon, :tap_macro_min_interval_ms, 0)
+    Application.put_env(:axon, :macro_result_timeout_ms, 50)
+    Application.put_env(:axon, :macro_engine, available: true, result: :ok, delay_ms: 200)
+
+    {:ok, view, _html} = live(conn, ~p"/macro")
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000WS01"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-00000000WS01"
+    })
+
+    assert_push_event_exact(view, "macro_result", %{
+      "status" => "error",
+      "error_code" => "E_TIMEOUT",
+      "message" => "timeout",
+      "request_id" => "00000000-0000-0000-0000-00000000WS01"
+    }, 1_000)
+  end
+
+  test "AXON-WS-002 timeout threshold is configurable", %{conn: conn} do
+    configure_ok!()
+
+    original_timeout = Application.get_env(:axon, :macro_result_timeout_ms)
+
+    on_exit(fn ->
+      if is_nil(original_timeout) do
+        Application.delete_env(:axon, :macro_result_timeout_ms)
+      else
+        Application.put_env(:axon, :macro_result_timeout_ms, original_timeout)
+      end
+    end)
+
+    Application.put_env(:axon, :tap_macro_min_interval_ms, 0)
+    Application.put_env(:axon, :macro_engine, available: true, result: :ok, delay_ms: 80)
+
+    {:ok, view, _html} = live(conn, ~p"/macro")
+
+    Application.put_env(:axon, :macro_result_timeout_ms, 20)
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000WS02A"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-00000000WS02A"
+    })
+
+    assert_push_event_exact(view, "macro_result", %{
+      "status" => "error",
+      "error_code" => "E_TIMEOUT",
+      "message" => "timeout",
+      "request_id" => "00000000-0000-0000-0000-00000000WS02A"
+    }, 1_000)
+
+    Application.put_env(:axon, :macro_result_timeout_ms, 200)
+
+    render_hook(view, "tap_macro", %{
+      "profile" => "Development",
+      "button_id" => "save_all",
+      "request_id" => "00000000-0000-0000-0000-00000000WS02B"
+    })
+
+    assert_push_event_exact(view, "macro_ack", %{
+      "accepted" => true,
+      "request_id" => "00000000-0000-0000-0000-00000000WS02B"
+    })
+
+    assert_push_event_exact(view, "macro_result", %{
+      "status" => "ok",
+      "request_id" => "00000000-0000-0000-0000-00000000WS02B"
+    }, 1_000)
   end
 end

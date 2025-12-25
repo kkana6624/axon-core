@@ -11,6 +11,8 @@ defmodule Axon.Application do
       AxonWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:axon, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Axon.PubSub},
+      Axon.App.Execution.SingleRunner,
+      Axon.App.Execution.ShutdownPanic,
       # Start a worker by calling: Axon.Worker.start_link(arg)
       # {Axon.Worker, arg},
       # Start to serve requests, typically the last entry

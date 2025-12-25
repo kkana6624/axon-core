@@ -4,7 +4,25 @@ defmodule Axon.App.Macro.TapMacroTest do
   alias Axon.App.Macro.TapMacro
 
   defmodule FakeConfigLoader do
-    def load, do: {:ok, %Axon.App.LoadConfig.Config{version: 1, profiles: [%{raw: %{"name" => "Dev", "buttons" => [%{"id" => "b1"}]} }]}}
+    def load do
+      {:ok,
+       %Axon.App.LoadConfig.Config{
+         version: 1,
+         profiles: [
+           %{
+             raw: %{
+               "name" => "Dev",
+               "buttons" => [
+                 %{
+                   "id" => "b1",
+                   "sequence" => [%{"action" => "tap", "key" => "VK_A"}]
+                 }
+               ]
+             }
+           }
+         ]
+       }}
+    end
   end
 
   defmodule FakeConfigLoaderError do
@@ -13,17 +31,17 @@ defmodule Axon.App.Macro.TapMacroTest do
 
   defmodule FakeEngineOk do
     def available?, do: true
-    def run(_profile, _button_id, _request_id), do: :ok
+    def key_tap(_key), do: :ok
   end
 
   defmodule FakeEngineUnavailable do
     def available?, do: false
-    def run(_profile, _button_id, _request_id), do: :ok
+    def key_tap(_key), do: :ok
   end
 
   defmodule FakeEngineError do
     def available?, do: true
-    def run(_profile, _button_id, _request_id), do: {:error, :engine_failure, "engine failure"}
+    def key_tap(_key), do: {:error, :engine_failure, "engine failure"}
   end
 
   test "rejects invalid payload (reason=invalid_request)" do

@@ -2,9 +2,10 @@
   "version": 1,
   "keys": [
     "VK_A",
+    "VK_ENTER",
     "VK_LCTRL",
     "VK_LSHIFT",
-    "VK_S",
-    "VK_ENTER"
+    "VK_S"
   ]
 }
+

@@ -28,6 +28,15 @@
 - `E_FORBIDDEN`: 権限/IP制限違反
 - `E_INTERNAL`: 想定外例外
 
+### 1.4 `macro_result.message`（Frozen for Tests, 最小）
+`status=error` のとき、テストが依存する message は以下のみ固定する（追加は必要最小限）。
+
+- `E_ENGINE_UNAVAILABLE` → `"engine unavailable"`
+- `E_ENGINE_FAILURE` → `"engine failure"`
+- `E_CONFIG_INVALID` → `"invalid action"`
+- `E_TIMEOUT` → `"timeout"`
+- `E_INTERNAL` → `"internal error"`
+
 ## 2. HTTP / WebSocket
 
 ### 2.1 IP制限（RemoteAddress）

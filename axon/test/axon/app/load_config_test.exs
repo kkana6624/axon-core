@@ -244,6 +244,47 @@ defmodule Axon.App.LoadConfigTest do
              Axon.App.LoadConfig.load_from_path(path)
   end
 
+  test "AXON-WAIT-001 wait=0 is allowed and order is preserved" do
+    path =
+      write_tmp!("""
+      version: 1
+      profiles:
+        - name: "Development"
+          buttons:
+            - id: "b1"
+              label: "B1"
+              sequence:
+                - { action: "wait", value: 0 }
+                - { action: "tap", key: "VK_A" }
+      """)
+
+    assert {:ok, config} = Axon.App.LoadConfig.load_from_path(path)
+
+    [profile] = config.profiles
+    [button] = get_in(profile.raw, ["buttons"])
+    [step1, step2] = get_in(button, ["sequence"])
+
+    assert step1 == %{"action" => "wait", "value" => 0}
+    assert step2 == %{"action" => "tap", "key" => "VK_A"}
+  end
+
+  test "AXON-WAIT-002 wait=10_000 is allowed" do
+    path =
+      write_tmp!("""
+      version: 1
+      profiles:
+        - name: "Development"
+          buttons:
+            - id: "b1"
+              label: "B1"
+              sequence:
+                - { action: "wait", value: 10000 }
+                - { action: "tap", key: "VK_A" }
+      """)
+
+    assert {:ok, _config} = Axon.App.LoadConfig.load_from_path(path)
+  end
+
   test "AXON-WAIT-003 total wait time must not exceed 30 seconds" do
     path =
       write_tmp!("""
