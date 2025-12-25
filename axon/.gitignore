@@ -35,3 +35,9 @@ axon-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# Rust NIF build artifacts
+/native/**/target/
+
+# Built NIF shared libraries
+/priv/native/
+
