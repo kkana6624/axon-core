@@ -1,6 +1,9 @@
 use rustler::NifUnitEnum;
+use serde::Serialize;
+use strum::{AsRefStr, Display, EnumIter};
 
-#[derive(NifUnitEnum, Debug, Clone, Copy)]
+#[derive(NifUnitEnum, Debug, Clone, Copy, EnumIter, AsRefStr, Display, Serialize)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum Key {
     VkA,
     VkB,
@@ -28,12 +31,19 @@ pub enum Key {
     VkX,
     VkY,
     VkZ,
+    #[strum(serialize = "VK_LSHIFT")]
     VkLshift,
+    #[strum(serialize = "VK_RSHIFT")]
     VkRshift,
+    #[strum(serialize = "VK_LCTRL")]
     VkLcontrol,
+    #[strum(serialize = "VK_RCTRL")]
     VkRcontrol,
+    #[strum(serialize = "VK_LMENU")]
     VkLmenu, // Alt
+    #[strum(serialize = "VK_RMENU")]
     VkRmenu,
+    #[strum(serialize = "VK_ENTER")]
     VkReturn,
     VkSpace,
     VkBack,

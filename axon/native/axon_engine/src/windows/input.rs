@@ -2,7 +2,7 @@ use crate::core::keys::Key;
 
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE,
+    SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
     VIRTUAL_KEY,
 };
 #[cfg(target_os = "windows")]
@@ -37,6 +37,21 @@ pub fn send_key_up(key: Key) -> Result<(), String> {
 pub fn send_key_tap(key: Key) -> Result<(), String> {
     send_key_down(key)?;
     send_key_up(key)
+}
+
+pub fn send_panic() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use strum::IntoEnumIterator;
+        for key in Key::iter() {
+            let _ = send_key_up(key);
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err("Engine unavailable on non-Windows OS".to_string())
+    }
 }
 
 #[cfg(target_os = "windows")]

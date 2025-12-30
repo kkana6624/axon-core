@@ -1,11 +1,170 @@
 {
   "version": 1,
   "keys": [
-    "VK_A",
-    "VK_ENTER",
-    "VK_LCTRL",
-    "VK_LSHIFT",
-    "VK_S"
+    {
+      "atom": "vk_a",
+      "name": "VK_A"
+    },
+    {
+      "atom": "vk_b",
+      "name": "VK_B"
+    },
+    {
+      "atom": "vk_c",
+      "name": "VK_C"
+    },
+    {
+      "atom": "vk_d",
+      "name": "VK_D"
+    },
+    {
+      "atom": "vk_e",
+      "name": "VK_E"
+    },
+    {
+      "atom": "vk_f",
+      "name": "VK_F"
+    },
+    {
+      "atom": "vk_g",
+      "name": "VK_G"
+    },
+    {
+      "atom": "vk_h",
+      "name": "VK_H"
+    },
+    {
+      "atom": "vk_i",
+      "name": "VK_I"
+    },
+    {
+      "atom": "vk_j",
+      "name": "VK_J"
+    },
+    {
+      "atom": "vk_k",
+      "name": "VK_K"
+    },
+    {
+      "atom": "vk_l",
+      "name": "VK_L"
+    },
+    {
+      "atom": "vk_m",
+      "name": "VK_M"
+    },
+    {
+      "atom": "vk_n",
+      "name": "VK_N"
+    },
+    {
+      "atom": "vk_o",
+      "name": "VK_O"
+    },
+    {
+      "atom": "vk_p",
+      "name": "VK_P"
+    },
+    {
+      "atom": "vk_q",
+      "name": "VK_Q"
+    },
+    {
+      "atom": "vk_r",
+      "name": "VK_R"
+    },
+    {
+      "atom": "vk_s",
+      "name": "VK_S"
+    },
+    {
+      "atom": "vk_t",
+      "name": "VK_T"
+    },
+    {
+      "atom": "vk_u",
+      "name": "VK_U"
+    },
+    {
+      "atom": "vk_v",
+      "name": "VK_V"
+    },
+    {
+      "atom": "vk_w",
+      "name": "VK_W"
+    },
+    {
+      "atom": "vk_x",
+      "name": "VK_X"
+    },
+    {
+      "atom": "vk_y",
+      "name": "VK_Y"
+    },
+    {
+      "atom": "vk_z",
+      "name": "VK_Z"
+    },
+    {
+      "atom": "vk_lshift",
+      "name": "VK_LSHIFT"
+    },
+    {
+      "atom": "vk_rshift",
+      "name": "VK_RSHIFT"
+    },
+    {
+      "atom": "vk_lcontrol",
+      "name": "VK_LCTRL"
+    },
+    {
+      "atom": "vk_rcontrol",
+      "name": "VK_RCTRL"
+    },
+    {
+      "atom": "vk_lmenu",
+      "name": "VK_LMENU"
+    },
+    {
+      "atom": "vk_rmenu",
+      "name": "VK_RMENU"
+    },
+    {
+      "atom": "vk_return",
+      "name": "VK_ENTER"
+    },
+    {
+      "atom": "vk_space",
+      "name": "VK_SPACE"
+    },
+    {
+      "atom": "vk_back",
+      "name": "VK_BACK"
+    },
+    {
+      "atom": "vk_tab",
+      "name": "VK_TAB"
+    },
+    {
+      "atom": "vk_escape",
+      "name": "VK_ESCAPE"
+    },
+    {
+      "atom": "vk_up",
+      "name": "VK_UP"
+    },
+    {
+      "atom": "vk_down",
+      "name": "VK_DOWN"
+    },
+    {
+      "atom": "vk_left",
+      "name": "VK_LEFT"
+    },
+    {
+      "atom": "vk_right",
+      "name": "VK_RIGHT"
+    }
   ]
 }
 

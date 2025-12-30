@@ -11,6 +11,11 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
   def key_up_nif(_key), do: :erlang.nif_error(:nif_not_loaded)
   def key_tap_nif(_key), do: :erlang.nif_error(:nif_not_loaded)
   def panic_nif, do: :erlang.nif_error(:nif_not_loaded)
+  def dump_keycodes_nif, do: :erlang.nif_error(:nif_not_loaded)
+  def get_wlan_interfaces_nif, do: :erlang.nif_error(:nif_not_loaded)
+  def start_mdns_nif(_service_type, _instance_name, _port), do: :erlang.nif_error(:nif_not_loaded)
+  def stop_mdns_nif(_ref), do: :erlang.nif_error(:nif_not_loaded)
+  def run_privileged_command_nif(_cmd, _params), do: :erlang.nif_error(:nif_not_loaded)
 
   # Adapter API expected by Axon.App.Macro.TapMacro
   def available? do

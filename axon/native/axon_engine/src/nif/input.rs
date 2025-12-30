@@ -39,6 +39,13 @@ pub fn key_tap_nif(key: Key) -> Result<Atom, (Atom, Atom, String)> {
 
 #[rustler::nif]
 pub fn panic_nif() -> Atom {
-    // TODO: Implement panic in windows adapter
-    ok()
+    match crate::windows::input::send_panic() {
+        Ok(_) => ok(),
+        Err(_) => error(), // Or just return ok() anyway as it's a panic
+    }
+}
+
+#[rustler::nif]
+pub fn dump_keycodes_nif() -> String {
+    crate::core::generate_keycodes_json()
 }
