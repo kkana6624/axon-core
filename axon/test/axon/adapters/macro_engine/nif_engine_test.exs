@@ -13,8 +13,12 @@ defmodule Axon.Adapters.MacroEngine.NifEngineTest do
         assert {:error, :engine_unavailable, "engine unavailable"} = NifEngine.key_tap("VK_A")
 
       {:win32, _} ->
-        # On Windows this is currently a stub.
-        assert {:error, :engine_failure, "engine failure"} = NifEngine.key_tap("VK_A")
+        # On Windows this is implemented and should succeed (side effect: key press)
+        assert :ok = NifEngine.key_tap("VK_A")
     end
+  end
+
+  test "panic/0 returns :ok" do
+    assert :ok = NifEngine.panic()
   end
 end
