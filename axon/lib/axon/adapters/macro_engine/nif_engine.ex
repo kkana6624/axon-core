@@ -20,12 +20,30 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
 
   # Adapter API expected by Axon.App.Macro.TapMacro
   def available? do
-    available_nif()
+    available_nif() == true
   rescue
+    # This catches UndefinedFunctionError (module/function not found) 
+    # and ErlangError (nif_error :nif_not_loaded)
     _ -> false
-  catch
-    :exit, _ -> false
-    _, _ -> false
+  end
+
+  def wait_until_ready(timeout_ms \\ 5000) do
+    start_time = System.monotonic_time(:millisecond)
+    do_wait_ready(start_time, timeout_ms)
+  end
+
+  defp do_wait_ready(start_time, timeout_ms) do
+    if available?() do
+      :ok
+    else
+      elapsed = System.monotonic_time(:millisecond) - start_time
+      if elapsed > timeout_ms do
+        {:error, :timeout}
+      else
+        Process.sleep(100)
+        do_wait_ready(start_time, timeout_ms)
+      end
+    end
   end
 
   def key_down(key) when is_binary(key) do
@@ -36,9 +54,6 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
     end
   rescue
     _ -> @engine_unavailable
-  catch
-    :exit, _ -> @engine_unavailable
-    _, _ -> @engine_unavailable
   end
 
   def key_up(key) when is_binary(key) do
@@ -49,9 +64,6 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
     end
   rescue
     _ -> @engine_unavailable
-  catch
-    :exit, _ -> @engine_unavailable
-    _, _ -> @engine_unavailable
   end
 
   def key_tap(key) when is_binary(key) do
@@ -62,20 +74,19 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
     end
   rescue
     _ -> @engine_unavailable
-  catch
-    :exit, _ -> @engine_unavailable
-    _, _ -> @engine_unavailable
   end
 
   def execute_sequence(sequence) when is_list(sequence) do
     with {:ok, nif_actions} <- prepare_actions(sequence) do
       execute_sequence_nif(nif_actions) |> normalize_nif_result()
+    else
+      {:error, :invalid_key} -> {:error, :config_invalid, "invalid key in sequence"}
+      {:error, :invalid_action} -> {:error, :config_invalid, "invalid action in sequence"}
+      {:error, :invalid_step} -> {:error, :config_invalid, "invalid step in sequence"}
+      err -> err
     end
   rescue
     _ -> @engine_unavailable
-  catch
-    :exit, _ -> @engine_unavailable
-    _, _ -> @engine_unavailable
   end
 
   defp prepare_actions(sequence) do
@@ -116,52 +127,37 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
     :ok
   rescue
     _ -> :ok
-  catch
-    :exit, _ -> :ok
-    _, _ -> :ok
   end
 
   # Setup API
   def get_wlan_interfaces do
     case get_wlan_interfaces_nif() do
-      {:ok, json} ->
-        Jason.decode(json)
-
-      {:error, reason} ->
-        {:error, reason}
+      {:ok, json} -> Jason.decode(json)
+      {:error, reason} -> {:error, reason}
     end
   rescue
     _ -> @engine_unavailable
-  catch
-    :exit, _ -> @engine_unavailable
-    _, _ -> @engine_unavailable
   end
 
   def start_mdns(service_type, instance_name, port) do
     start_mdns_nif(service_type, instance_name, port)
   rescue
     _ -> @engine_unavailable
-  catch
-    :exit, _ -> @engine_unavailable
-    _, _ -> @engine_unavailable
   end
 
   def stop_mdns(ref) do
     stop_mdns_nif(ref)
   rescue
     _ -> :ok
-  catch
-    :exit, _ -> :ok
-    _, _ -> :ok
   end
 
   def run_privileged_command(cmd, params) do
-    run_privileged_command_nif(cmd, params)
+    case run_privileged_command_nif(cmd, params) do
+      "ok" -> :ok
+      _ -> @engine_unavailable
+    end
   rescue
     _ -> @engine_unavailable
-  catch
-    :exit, _ -> @engine_unavailable
-    _, _ -> @engine_unavailable
   end
 
   defp normalize_nif_result({:ok, :ok}), do: :ok
@@ -201,9 +197,14 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
       "VK_RSHIFT" -> {:ok, :vk_rshift}
       "VK_LCTRL" -> {:ok, :vk_lcontrol}
       "VK_RCTRL" -> {:ok, :vk_rcontrol}
+      "VK_LCONTROL" -> {:ok, :vk_lcontrol}
+      "VK_RCONTROL" -> {:ok, :vk_rcontrol}
       "VK_LMENU" -> {:ok, :vk_lmenu}
       "VK_RMENU" -> {:ok, :vk_rmenu}
+      "VK_LALT" -> {:ok, :vk_lmenu}
+      "VK_RALT" -> {:ok, :vk_rmenu}
       "VK_RETURN" -> {:ok, :vk_return}
+      "VK_ENTER" -> {:ok, :vk_return}
       "VK_SPACE" -> {:ok, :vk_space}
       "VK_BACK" -> {:ok, :vk_back}
       "VK_TAB" -> {:ok, :vk_tab}

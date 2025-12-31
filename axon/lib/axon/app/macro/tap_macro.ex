@@ -40,12 +40,16 @@ defmodule Axon.App.Macro.TapMacro do
     {:rejected, %{"accepted" => false, "reason" => "invalid_request", "request_id" => nil}}
   end
 
+  defp config_provider, do: Application.get_env(:axon, :config_provider)
+
   @spec preflight(map(), keyword()) ::
           {:rejected, ack_payload()} | {:accepted, ack_payload(), exec_spec()}
   def preflight(payload, opts \\ [])
 
   def preflight(payload, opts) when is_map(payload) do
-    config_loader = Keyword.get(opts, :config_loader, LoadConfig)
+    # Support both config_provider (new) and config_loader (legacy)
+    provider = Keyword.get(opts, :config_provider) || Keyword.get(opts, :config_loader) || config_provider()
+    
     engine =
       Keyword.get(
         opts,
@@ -61,7 +65,7 @@ defmodule Axon.App.Macro.TapMacro do
         profile = Map.get(payload, "profile")
         button_id = Map.get(payload, "button_id")
 
-        case config_loader.load() do
+        case fetch_config(provider) do
           {:ok, config} ->
             with :ok <- ensure_macro_exists(config, profile, button_id),
                  :ok <- ensure_engine_available(engine) do
@@ -277,6 +281,16 @@ defmodule Axon.App.Macro.TapMacro do
   end
 
   defp validate_payload(_), do: {:error, "invalid_request"}
+
+  defp fetch_config(provider) do
+    _ = Code.ensure_loaded(provider)
+
+    cond do
+      function_exported?(provider, :get_config, 0) -> provider.get_config()
+      function_exported?(provider, :load, 0) -> provider.load()
+      true -> {:error, :not_configured}
+    end
+  end
 
   defp ensure_engine_available(engine) do
     _ = Code.ensure_loaded(engine)

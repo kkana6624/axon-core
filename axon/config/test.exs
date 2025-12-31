@@ -23,3 +23,4 @@ config :phoenix,
 
 config :axon, :mdns, auto_start: false
 config :axon, :macro_engine_module, Axon.Adapters.MacroEngine.EnvEngine
+config :axon, :config_provider, Axon.App.StaticConfigProvider

@@ -89,17 +89,33 @@ defmodule Axon.App.LoadConfigTest do
     assert {:error, :empty_profiles} = Axon.App.LoadConfig.load_from_path(path)
   end
 
-  test "AXON-CONF-009 invalid AXON_PROFILES_PATH returns error" do
-    missing = Path.join(System.tmp_dir!(), "axon_missing_#{System.unique_integer([:positive])}.yaml")
+    test "AXON-CONF-009 invalid AXON_PROFILES_PATH returns error" do
 
-    with_env_var("AXON_PROFILES_PATH", missing, fn ->
-      assert {:error, {:profiles_not_found, ^missing}} =
-               Axon.App.LoadConfig.load(
-                 priv_path: "",
-                 user_path: ""
-               )
-    end)
-  end
+      missing = Path.join(System.tmp_dir!(), "axon_missing_#{System.unique_integer([:positive])}.yaml")
+
+  
+
+      with_env_var("AXON_PROFILES_PATH", missing, fn ->
+
+        # Force failure by ensuring other defaults are also missing/invalid in this call
+
+        assert {:error, {:profiles_not_found, ^missing}} =
+
+                 Axon.App.LoadConfig.load(
+
+                   priv_path: "/non/existent/priv.yaml",
+
+                   user_path: "/non/existent/user.yaml",
+
+                   provision: false
+
+                 )
+
+      end)
+
+    end
+
+  
 
   test "AXON-CONF-010 path resolution priority is env -> priv -> user" do
     env_path =
@@ -128,19 +144,19 @@ defmodule Axon.App.LoadConfigTest do
 
     # 1) env wins
     with_env_var("AXON_PROFILES_PATH", env_path, fn ->
-      assert {:ok, config} = Axon.App.LoadConfig.load(priv_path: priv_path, user_path: user_path)
+      assert {:ok, config} = Axon.App.LoadConfig.load(priv_path: priv_path, user_path: user_path, provision: false)
       assert [%{name: "FromEnv"}] = config.profiles
     end)
 
     # 2) priv wins when env missing
     with_env_var("AXON_PROFILES_PATH", nil, fn ->
-      assert {:ok, config} = Axon.App.LoadConfig.load(priv_path: priv_path, user_path: user_path)
+      assert {:ok, config} = Axon.App.LoadConfig.load(priv_path: priv_path, user_path: user_path, provision: false)
       assert [%{name: "FromPriv"}] = config.profiles
     end)
 
     # 3) user wins when env missing and priv missing
     with_env_var("AXON_PROFILES_PATH", nil, fn ->
-      assert {:ok, config} = Axon.App.LoadConfig.load(priv_path: "", user_path: user_path)
+      assert {:ok, config} = Axon.App.LoadConfig.load(priv_path: "", user_path: user_path, provision: false)
       assert [%{name: "FromUser"}] = config.profiles
     end)
   end

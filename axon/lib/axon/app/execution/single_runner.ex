@@ -28,6 +28,10 @@ defmodule Axon.App.Execution.SingleRunner do
     GenServer.call(__MODULE__, {:release, owner_pid})
   end
 
+  def get_mode do
+    GenServer.call(__MODULE__, :get_mode)
+  end
+
   @impl true
   def init(_init_arg) do
     {:ok,
@@ -41,6 +45,11 @@ defmodule Axon.App.Execution.SingleRunner do
        task_ref: nil,
        request_id: nil
      }}
+  end
+
+  @impl true
+  def handle_call(:get_mode, _from, state) do
+    {:reply, state.mode, state}
   end
 
   @impl true

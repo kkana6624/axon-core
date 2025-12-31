@@ -394,4 +394,33 @@ defmodule Axon.App.ExecuteMacroTest do
     assert err_log =~ "result=error"
     assert Regex.match?(~r/duration_ms=\d+/, err_log)
   end
+
+  test "AXON-EXEC-004 panic_reset allows recovery from panic state" do
+    # 1. Enter panic state
+    ExecuteMacro.panic(%{"request_id" => "p1"}, reply_to: self())
+    assert_receive {:emit_macro_result, %{"status" => "panic"}}
+
+    # 2. Macro should be rejected
+    payload = %{"profile" => "Dev", "button_id" => "b1", "request_id" => "r_rejected"}
+    assert {:rejected, %{"accepted" => false, "reason" => "busy"}} = 
+             ExecuteMacro.tap_macro(payload, 
+               reply_to: self(), 
+               owner_pid: self(), 
+               config_loader: FakeConfigLoader, 
+               engine: EngineOk
+             )
+
+    # 3. Reset panic
+    assert :ok = ExecuteMacro.panic_reset()
+
+    # 4. Macro should now be accepted
+    assert {:accepted, %{"accepted" => true, "request_id" => "r_accepted"}} = 
+             ExecuteMacro.tap_macro(%{payload | "request_id" => "r_accepted"}, 
+               reply_to: self(), 
+               owner_pid: self(), 
+               config_loader: FakeConfigLoader, 
+               engine: EngineOk
+             )
+    assert_receive {:emit_macro_result, %{"status" => "ok"}}, 1_000
+  end
 end

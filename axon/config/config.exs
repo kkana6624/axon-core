@@ -8,7 +8,9 @@
 import Config
 
 config :axon,
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  macro_engine_module: Axon.Adapters.MacroEngine.NifEngine,
+  config_provider: Axon.App.ConfigStore
 
 config :axon, :remote_address,
   allow_private: true,
@@ -16,7 +18,7 @@ config :axon, :remote_address,
 
 config :axon, :mdns,
   auto_start: true,
-  service_type: "_axon-macro._tcp",
+  service_type: "_axon-macro._tcp.local.",
   instance_name: "AxonServer",
   port: 4000
 
