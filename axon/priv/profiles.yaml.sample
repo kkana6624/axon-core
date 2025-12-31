@@ -1,0 +1,18 @@
+version: 1
+profiles:
+  - name: "Sample Profile"
+    buttons:
+      - id: "test_a"
+        label: "Test Type A"
+        sequence:
+          - { action: "tap",  key: "VK_A" }
+      - id: "enter"
+        label: "Enter Key"
+        sequence:
+          - { action: "tap",  key: "VK_RETURN" }
+      - id: "save_all"
+        label: "Save All"
+        sequence:
+          - { action: "down", key: "VK_LCTRL" }
+          - { action: "tap",  key: "VK_S" }
+          - { action: "up",   key: "VK_LCTRL" }

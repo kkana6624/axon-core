@@ -9,29 +9,15 @@ defmodule AxonWeb.DashboardLive do
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      # Refresh logs periodically or on events if needed
-      :ok
+      :timer.send_interval(5000, :tick)
     end
 
     {:ok, assign_data(socket)}
   end
 
   @impl true
-  def handle_event("run_macro", %{"profile" => profile, "button" => button}, socket) do
-    request_id = "test-" <> (:crypto.strong_rand_bytes(4) |> Base.encode16())
-    payload = %{
-      "profile" => profile,
-      "button_id" => button,
-      "request_id" => request_id
-    }
-
-    case ExecuteMacro.tap_macro(payload) do
-      {:accepted, _ack} ->
-        {:noreply, put_flash(socket, :info, "Macro '#{button}' started.")}
-
-      {:rejected, %{"reason" => reason}} ->
-        {:noreply, put_flash(socket, :error, "Macro rejected: #{reason}")}
-    end
+  def handle_info(:tick, socket) do
+    {:noreply, assign_data(socket)}
   end
 
   @impl true
@@ -55,11 +41,15 @@ defmodule AxonWeb.DashboardLive do
     config_result = LoadConfig.load()
     mdns_status = MdnsServer.get_status()
     macro_logs = MacroLog.get_recent()
+    
+    # Get current mode safely from SingleRunner
+    system_mode = Axon.App.Execution.SingleRunner.get_mode()
 
     assign(socket,
       config_result: config_result,
       mdns_status: mdns_status,
       macro_logs: macro_logs,
+      system_mode: system_mode,
       loading: false
     )
   end
@@ -75,6 +65,18 @@ defmodule AxonWeb.DashboardLive do
               <span class="text-xl font-bold tracking-tight">AXON Dashboard</span>
             </div>
             <div class="flex items-center space-x-4">
+              <div class="flex items-center text-xs">
+                <span class={"inline-block w-2 h-2 rounded-full mr-2 #{case @system_mode do
+                  :idle -> "bg-green-400"
+                  :running -> "bg-blue-400 animate-pulse"
+                  :panic -> "bg-orange-500 animate-bounce"
+                  _ -> "bg-gray-500"
+                end}"}></span>
+                System: <%= String.capitalize(to_string(@system_mode)) %>
+              </div>
+              <%= if @system_mode == :panic do %>
+                <button phx-click="panic_reset" class="text-xs bg-orange-600 hover:bg-orange-700 px-3 py-1 rounded transition font-bold">RESET PANIC</button>
+              <% end %>
               <div class="flex items-center text-xs">
                 <span class={"inline-block w-2 h-2 rounded-full mr-2 #{if @mdns_status == :running, do: "bg-green-400 animate-pulse", else: "bg-gray-500"}"}></span>
                 mDNS: <%= String.capitalize(to_string(@mdns_status)) %>

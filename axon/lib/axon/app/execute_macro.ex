@@ -127,6 +127,11 @@ defmodule Axon.App.ExecuteMacro do
     {:rejected, %{"accepted" => false, "reason" => "invalid_request", "request_id" => nil}}
   end
 
+  @spec panic_reset() :: :ok
+  def panic_reset do
+    SingleRunner.reset()
+  end
+
   defp try_engine_panic(engine) do
     _ = Code.ensure_loaded(engine)
 

@@ -13,6 +13,7 @@ defmodule AxonWeb.SetupLive do
     
     if connected?(socket) do
       send(self(), :async_init)
+      :timer.send_interval(2000, :tick)
     end
 
     {:ok, 
@@ -39,8 +40,14 @@ defmodule AxonWeb.SetupLive do
   end
 
   @impl true
+  def handle_info(:tick, socket) do
+    # Only reload config, skip heavy system checks
+    {:noreply, reload_config_data(socket)}
+  end
+
+  @impl true
   def handle_event("reload_config", _params, socket) do
-    {:noreply, assign_data(socket)}
+    {:noreply, reload_config_data(socket)}
   end
 
   @impl true
@@ -121,6 +128,17 @@ defmodule AxonWeb.SetupLive do
     )
   end
 
+  defp reload_config_data(socket) do
+    config_result = LoadConfig.load()
+    profiles_path_result = ProfilesPath.resolve()
+    
+    assign(socket,
+      config_result: config_result,
+      profiles_path_result: profiles_path_result,
+      env_value: System.get_env("AXON_PROFILES_PATH")
+    )
+  end
+
   defp list_all_ips do
     case :inet.getifaddrs() do
       {:ok, ifaddrs} ->
@@ -136,6 +154,31 @@ defmodule AxonWeb.SetupLive do
         []
     end
   end
+
+  defp format_config_error({:unknown_key, %{key: key, profile: p, button_id: b, sequence_index: i}}) do
+    "Unknown key '#{key}' in profile '#{p}', button '#{b}' at action ##{i + 1}."
+  end
+
+  defp format_config_error({:invalid_action, %{action: a, profile: p, button_id: b, sequence_index: i}}) do
+    "Invalid action '#{a}' in profile '#{p}', button '#{b}' at action ##{i + 1}."
+  end
+
+  defp format_config_error({:duplicate_button_id, %{button_id: id, profile: p}}) do
+    "Duplicate button ID '#{id}' in profile '#{p}'."
+  end
+
+  defp format_config_error({:wait_total_exceeded, %{total_ms: total, limit_ms: limit, profile: p, button_id: b}}) do
+    "Total wait time (#{total}ms) exceeds limit (#{limit}ms) in profile '#{p}', button '#{b}'."
+  end
+
+  defp format_config_error({:sequence_too_long, %{length: len, limit: limit, profile: p, button_id: b}}) do
+    "Sequence length (#{len}) exceeds limit (#{limit}) in profile '#{p}', button '#{b}'."
+  end
+
+  defp format_config_error({:unsupported_version, v}), do: "Unsupported configuration version: #{v}. Only version 1 is supported."
+  defp format_config_error(:missing_version), do: "Missing 'version' field in configuration."
+  defp format_config_error(:empty_profiles), do: "No profiles found in configuration."
+  defp format_config_error(reason), do: "Invalid configuration format: #{inspect(reason)}"
 
   @impl true
   def render(assigns) do
@@ -174,8 +217,10 @@ defmodule AxonWeb.SetupLive do
                 <p class="flex items-center font-medium">
                   <.icon name="hero-exclamation-triangle" class="w-5 h-5 mr-2" /> Configuration Error
                 </p>
-                <p class="text-sm mt-1">Code: E_CONFIG_INVALID</p>
-                <pre class="text-xs mt-2 bg-white/50 p-2 rounded overflow-auto max-h-40"><%= inspect(reason, pretty: true) %></pre>
+                <p class="text-sm mt-1 font-bold"><%= format_config_error(reason) %></p>
+                <div class="mt-2 p-2 bg-white/50 rounded text-[10px] font-mono overflow-auto max-h-20">
+                  Raw: <%= inspect(reason) %>
+                </div>
               </div>
           <% end %>
 

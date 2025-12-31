@@ -49,6 +49,7 @@ defmodule AxonWeb.MacroLive do
           <div class={"px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 #{case @status do
             :ready -> "bg-green-100 text-green-700 border border-green-200"
             :busy -> "bg-amber-100 text-amber-700 border border-amber-200 animate-pulse"
+            :panic -> "bg-orange-100 text-orange-700 border border-orange-200"
             :error -> "bg-red-100 text-red-700 border border-red-200"
           end}"}>
             <%= @status %>
@@ -108,6 +109,29 @@ defmodule AxonWeb.MacroLive do
       >
         <.icon name="hero-bolt" class="w-7 h-7" />
       </button>
+
+      <!-- Panic/Error Recovery Overlay -->
+      <%= if @status in [:panic, :error] do %>
+        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-30 flex items-center justify-center p-6 text-center">
+          <div class="bg-white rounded-3xl p-8 shadow-2xl max-w-xs w-full animate-in fade-in zoom-in duration-300">
+            <div class={"w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center #{if @status == :panic, do: "bg-orange-100 text-orange-600", else: "bg-red-100 text-red-600"}"}>
+              <.icon name={if @status == :panic, do: "hero-exclamation-triangle", else: "hero-x-circle"} class="w-10 h-10" />
+            </div>
+            <h2 class="text-2xl font-bold mb-2">
+              <%= if @status == :panic, do: "Panic Mode", else: "System Error" %>
+            </h2>
+            <p class="text-slate-500 mb-8 leading-relaxed">
+              <%= if @status == :panic, do: "Emergency stop was triggered. All keys have been released.", else: "A system error occurred while executing the macro." %>
+            </p>
+            <button
+              phx-click="panic_reset"
+              class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-lg active:scale-95 transition-transform"
+            >
+              RESET SYSTEM
+            </button>
+          </div>
+        </div>
+      <% end %>
 
       <!-- Feedback Toast Area (CSS handles visibility) -->
       <div id="status-toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 bg-slate-800 text-white text-xs rounded-full opacity-0 pointer-events-none transition-opacity duration-300">
@@ -176,8 +200,20 @@ defmodule AxonWeb.MacroLive do
   end
 
   @impl true
+  def handle_event("panic_reset", _params, socket) do
+    :ok = ExecuteMacro.panic_reset()
+    {:noreply, assign(socket, status: :ready)}
+  end
+
+  @impl true
   def handle_info({:emit_macro_result, payload}, socket) do
-    status = if payload["status"] == "ok", do: :ready, else: :error
+    status =
+      case payload["status"] do
+        "ok" -> :ready
+        "panic" -> :panic
+        _ -> :error
+      end
+
     {:noreply, socket |> assign(status: status) |> push_event("macro_result", payload)}
   end
 end
