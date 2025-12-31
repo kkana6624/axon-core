@@ -11,6 +11,7 @@ defmodule Axon.Application do
       AxonWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:axon, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Axon.PubSub},
+      Axon.App.Execution.MacroLog,
       Axon.App.Execution.SingleRunner,
       Axon.App.Execution.ShutdownPanic,
       Axon.App.Setup.MdnsServer,

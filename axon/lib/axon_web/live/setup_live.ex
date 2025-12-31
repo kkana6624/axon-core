@@ -9,7 +9,33 @@ defmodule AxonWeb.SetupLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign_data(socket)}
+    peer_data = get_connect_info(socket, :peer_data) || %{address: {0, 0, 0, 0}}
+    
+    if connected?(socket) do
+      send(self(), :async_init)
+    end
+
+    {:ok, 
+     socket 
+     |> assign(client_ip: peer_data.address)
+     |> assign(
+       config_result: {:ok, %{profiles: []}}, # Placeholder
+       profiles_path_result: {:ok, ""},
+       nic_result: {:ok, []},
+       mdns_status: :stopped,
+       firewall_configured: false,
+       security_config: [],
+       all_ips: [],
+       loading: true,
+       firewall_error: nil,
+       env_var: "AXON_PROFILES_PATH",
+       env_value: System.get_env("AXON_PROFILES_PATH")
+     )}
+  end
+
+  @impl true
+  def handle_info(:async_init, socket) do
+    {:noreply, socket |> assign_data() |> assign(loading: false)}
   end
 
   @impl true
@@ -40,7 +66,7 @@ defmodule AxonWeb.SetupLive do
   def handle_event("start_mdns", %{"port" => port_str}, socket) do
     port = String.to_integer(port_str)
     # Default values for now
-    case MdnsServer.start_broadcast("_axon-macro._tcp", "AxonServer", port) do
+    case MdnsServer.start_broadcast("_axon-macro._tcp.local.", "AxonServer", port) do
       :ok ->
         {:noreply, assign(socket, mdns_status: :running)}
 
@@ -55,12 +81,30 @@ defmodule AxonWeb.SetupLive do
     {:noreply, assign(socket, mdns_status: :stopped)}
   end
 
+  @impl true
+  def handle_event("test_tap", %{"key" => key}, socket) do
+    engine = Application.get_env(:axon, :macro_engine_module)
+
+    case engine.key_tap(key) do
+      :ok ->
+        {:noreply, put_flash(socket, :info, "Direct engine tap '#{key}' successful.")}
+
+      {:error, :config_invalid, message} ->
+        {:noreply, put_flash(socket, :error, "Engine test failed (Invalid Config): #{message}")}
+
+      {:error, _reason, message} ->
+        {:noreply, put_flash(socket, :error, "Engine test failed: #{message}")}
+    end
+  end
+
   defp assign_data(socket) do
     config_result = LoadConfig.load()
     profiles_path_result = ProfilesPath.resolve()
     nic_result = GetNicCapabilities.execute()
     mdns_status = MdnsServer.get_status()
     firewall_configured = SetupFirewall.configured?()
+    security_config = Application.get_env(:axon, :remote_address, [])
+    all_ips = list_all_ips()
 
     assign(socket,
       config_result: config_result,
@@ -68,6 +112,8 @@ defmodule AxonWeb.SetupLive do
       nic_result: nic_result,
       mdns_status: mdns_status,
       firewall_configured: firewall_configured,
+      security_config: security_config,
+      all_ips: all_ips,
       loading: false,
       firewall_error: nil,
       env_var: "AXON_PROFILES_PATH",
@@ -75,13 +121,41 @@ defmodule AxonWeb.SetupLive do
     )
   end
 
+  defp list_all_ips do
+    case :inet.getifaddrs() do
+      {:ok, ifaddrs} ->
+        for {ifname, opts} <- ifaddrs,
+            {addr_type, addr} <- opts,
+            addr_type == :addr,
+            tuple_size(addr) == 4,
+            addr != {127, 0, 0, 1} do
+          %{ifname: List.to_string(ifname), addr: :inet.ntoa(addr)}
+        end
+
+      _ ->
+        []
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
     <div class="p-6 max-w-4xl mx-auto">
-      <h1 class="text-3xl font-bold mb-6">Axon Setup Wizard</h1>
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">Axon Setup Wizard</h1>
+        <%= if @loading do %>
+          <div class="flex items-center text-blue-600 animate-pulse">
+            <.icon name="hero-arrow-path" class="w-5 h-5 mr-2 animate-spin" />
+            <span class="text-sm font-medium">Detecting system environment...</span>
+          </div>
+        <% end %>
+      </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+        <%= if @loading do %>
+          <div class="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-20 rounded-lg flex items-center justify-center">
+          </div>
+        <% end %>
         <!-- Configuration Section -->
         <div class="bg-white shadow rounded-lg p-6 border-t-4 border-blue-500">
           <h2 class="text-xl font-semibold mb-4 flex items-center">
@@ -126,6 +200,19 @@ defmodule AxonWeb.SetupLive do
           </h2>
 
           <div class="mb-4">
+            <h3 class="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">Local IP Addresses</h3>
+            <ul class="space-y-1 mb-4">
+              <%= for ip_info <- @all_ips do %>
+                <li class="text-sm flex justify-between bg-slate-50 px-2 py-1 rounded">
+                  <span class="text-gray-500 font-mono text-xs"><%= ip_info.ifname %></span>
+                  <span class="font-bold font-mono text-blue-600"><%= ip_info.addr %></span>
+                </li>
+              <% end %>
+              <%= if Enum.empty?(@all_ips) do %>
+                <li class="text-sm text-gray-500 italic">No non-loopback IPv4 addresses found.</li>
+              <% end %>
+            </ul>
+
             <h3 class="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">WLAN Interfaces</h3>
             <%= case @nic_result do %>
               <% {:ok, interfaces} -> %>
@@ -165,8 +252,50 @@ defmodule AxonWeb.SetupLive do
                 </button>
               <% end %>
             </div>
-            <p class="text-xs text-gray-500">Broadcasting as <span class="font-mono">AxonServer._axon-macro._tcp.local</span></p>
+            <p class="text-xs text-gray-500 mb-2">Broadcasting as:</p>
+            <div class="bg-gray-800 text-green-400 font-mono text-xs p-2 rounded break-all mb-2">
+              AxonServer._axon-macro._tcp.local.
+            </div>
+            <p class="text-[10px] text-gray-400 italic">Port: 4000</p>
           </div>
+        </div>
+
+        <!-- Security Section -->
+        <div class="bg-white shadow rounded-lg p-6 border-t-4 border-red-500">
+          <h2 class="text-xl font-semibold mb-4 flex items-center">
+            <.icon name="hero-lock-closed" class="w-5 h-5 mr-2" /> Security
+          </h2>
+          
+          <div class="mb-4">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm font-bold text-gray-700 uppercase tracking-wider">Your IP Address</span>
+              <span class="text-xs font-mono bg-gray-100 px-2 py-1 rounded"><%= :inet.ntoa(@client_ip) %></span>
+            </div>
+            
+            <div class={"p-3 rounded flex items-center #{if Axon.Adapters.Security.RemoteAddress.allowed?(@client_ip, @security_config), do: "bg-green-100 text-green-800", else: "bg-red-100 text-red-800"}"}>
+              <.icon name={if Axon.Adapters.Security.RemoteAddress.allowed?(@client_ip, @security_config), do: "hero-check-circle", else: "hero-x-circle"} class="w-5 h-5 mr-2" />
+              <span class="text-sm font-medium">
+                <%= if Axon.Adapters.Security.RemoteAddress.allowed?(@client_ip, @security_config), do: "Access allowed from this IP", else: "Access restricted from this IP" %>
+              </span>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Policy Settings</h3>
+            <div class="flex items-center justify-between text-sm">
+              <span>Allow Loopback</span>
+              <span class={"font-bold #{if @security_config[:allow_loopback] != false, do: "text-green-600", else: "text-red-600"}"}>
+                <%= if @security_config[:allow_loopback] != false, do: "YES", else: "NO" %>
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <span>Allow Private Ranges</span>
+              <span class={"font-bold #{if @security_config[:allow_private] != false, do: "text-green-600", else: "text-red-600"}"}>
+                <%= if @security_config[:allow_private] != false, do: "YES", else: "NO" %>
+              </span>
+            </div>
+          </div>
+          <p class="mt-4 text-[10px] text-gray-400 italic">To change policy, edit config/config.exs and restart the server.</p>
         </div>
 
         <!-- Firewall Section -->
@@ -217,6 +346,24 @@ defmodule AxonWeb.SetupLive do
                 <pre class="bg-gray-800 text-gray-100 p-3 rounded text-xs overflow-x-auto font-mono"><%= SetupFirewall.get_manual_command() %></pre>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Direct Engine Test Section -->
+        <div class="bg-white shadow rounded-lg p-6 border-t-4 border-purple-500 md:col-span-2">
+          <h2 class="text-xl font-semibold mb-4 flex items-center">
+            <.icon name="hero-command-line" class="w-5 h-5 mr-2" /> Direct Engine Test
+          </h2>
+          <p class="text-sm text-gray-600 mb-4">
+            Test the macro engine directly. This bypasses profile configuration and sends a single key tap to the OS.
+          </p>
+          <div class="flex gap-4">
+            <button phx-click="test_tap" phx-value-key="VK_A" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded transition duration-200 flex items-center">
+              Test Tap 'A'
+            </button>
+            <button phx-click="test_tap" phx-value-key="VK_ENTER" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded transition duration-200 flex items-center">
+              Test Tap 'ENTER'
+            </button>
           </div>
         </div>
       </div>

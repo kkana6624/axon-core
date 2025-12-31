@@ -4,9 +4,15 @@ defmodule AxonWeb.DashboardLive do
   alias Axon.App.LoadConfig
   alias Axon.App.ExecuteMacro
   alias Axon.App.Setup.MdnsServer
+  alias Axon.App.Execution.MacroLog
 
   @impl true
   def mount(_params, _session, socket) do
+    if connected?(socket) do
+      # Refresh logs periodically or on events if needed
+      :ok
+    end
+
     {:ok, assign_data(socket)}
   end
 
@@ -39,16 +45,21 @@ defmodule AxonWeb.DashboardLive do
       end
 
     level = if status == "ok", do: :info, else: :error
-    {:noreply, put_flash(socket, level, message)}
+    {:noreply,
+     socket
+     |> put_flash(level, message)
+     |> assign(macro_logs: MacroLog.get_recent())}
   end
 
   defp assign_data(socket) do
     config_result = LoadConfig.load()
     mdns_status = MdnsServer.get_status()
+    macro_logs = MacroLog.get_recent()
 
     assign(socket,
       config_result: config_result,
       mdns_status: mdns_status,
+      macro_logs: macro_logs,
       loading: false
     )
   end
@@ -117,6 +128,56 @@ defmodule AxonWeb.DashboardLive do
               </a>
             </div>
         <% end %>
+
+        <div class="mt-12 bg-white shadow rounded-lg overflow-hidden border border-gray-200">
+          <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-gray-800">Recent Activity</h2>
+            <span class="text-xs font-mono text-gray-400">Audit Log</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Macro</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <%= for log <- @macro_logs do %>
+                  <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                      <%= Calendar.strftime(log.timestamp, "%H:%M:%S") %>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <span class="text-gray-400 text-xs mr-1"><%= log.profile %>:</span><%= log.button_id %>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{case log.result do
+                        "ok" -> "bg-green-100 text-green-800"
+                        "panic" -> "bg-orange-100 text-orange-800"
+                        _ -> "bg-red-100 text-red-800"
+                      end}"}>
+                        <%= log.result %>
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                      <%= log.duration_ms %>ms
+                    </td>
+                  </tr>
+                <% end %>
+                <%= if Enum.empty?(@macro_logs) do %>
+                  <tr>
+                    <td colspan="4" class="px-6 py-10 text-center text-sm text-gray-400 italic">
+                      No recent activity recorded.
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </main>
     </div>
     """

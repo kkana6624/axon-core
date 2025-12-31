@@ -4,6 +4,7 @@ defmodule Axon.App.ExecuteMacro do
   require Logger
 
   alias Axon.App.Execution.SingleRunner
+  alias Axon.App.Execution.MacroLog
   alias Axon.App.Macro.TapMacro
   alias Axon.Adapters.MacroEngine.EnvEngine
 
@@ -62,6 +63,15 @@ defmodule Axon.App.ExecuteMacro do
                Logger.info(
                  "macro_finished profile=#{profile} button_id=#{button_id} request_id=#{request_id} result=#{result} duration_ms=#{duration_ms}"
                )
+
+               MacroLog.add(%{
+                 profile: profile,
+                 button_id: button_id,
+                 request_id: request_id,
+                 result: result,
+                 duration_ms: duration_ms,
+                 timestamp: DateTime.utc_now()
+               })
 
                send(reply_to, {:emit_macro_result, result_payload})
              end) do
