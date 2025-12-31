@@ -22,6 +22,8 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
   def available? do
     available_nif() == true
   rescue
+    # This catches UndefinedFunctionError (module/function not found) 
+    # and ErlangError (nif_error :nif_not_loaded)
     _ -> false
   end
 
