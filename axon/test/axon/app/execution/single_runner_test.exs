@@ -44,7 +44,7 @@ defmodule Axon.App.Execution.SingleRunnerTest do
     
     # To test this, we need another process as owner
     test_pid = self()
-    owner2 = spawn(fn -> 
+    _owner2 = spawn(fn -> 
       res = SingleRunner.start_execution(self(), "req-2", fn -> :ok end)
       send(test_pid, {:owner2_result, res})
     end)

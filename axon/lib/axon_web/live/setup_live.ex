@@ -1,19 +1,20 @@
 defmodule AxonWeb.SetupLive do
   use AxonWeb, :live_view
 
-  alias Axon.App.LoadConfig
   alias Axon.App.Setup.GetNicCapabilities
   alias Axon.App.Setup.MdnsServer
   alias Axon.App.Setup.SetupFirewall
   alias Axon.Adapters.Config.ProfilesPath
+
+  defp config_provider, do: Application.get_env(:axon, :config_provider)
 
   @impl true
   def mount(_params, _session, socket) do
     peer_data = get_connect_info(socket, :peer_data) || %{address: {0, 0, 0, 0}}
     
     if connected?(socket) do
+      config_provider().subscribe()
       send(self(), :async_init)
-      :timer.send_interval(2000, :tick)
     end
 
     {:ok, 
@@ -40,14 +41,14 @@ defmodule AxonWeb.SetupLive do
   end
 
   @impl true
-  def handle_info(:tick, socket) do
-    # Only reload config, skip heavy system checks
+  def handle_info({:config_updated, _ref}, socket) do
     {:noreply, reload_config_data(socket)}
   end
 
   @impl true
   def handle_event("reload_config", _params, socket) do
-    {:noreply, reload_config_data(socket)}
+    _ = config_provider().reload()
+    {:noreply, socket}
   end
 
   @impl true
@@ -105,7 +106,7 @@ defmodule AxonWeb.SetupLive do
   end
 
   defp assign_data(socket) do
-    config_result = LoadConfig.load()
+    config_result = config_provider().get_config()
     profiles_path_result = ProfilesPath.resolve()
     nic_result = GetNicCapabilities.execute()
     mdns_status = MdnsServer.get_status()
@@ -129,7 +130,7 @@ defmodule AxonWeb.SetupLive do
   end
 
   defp reload_config_data(socket) do
-    config_result = LoadConfig.load()
+    config_result = config_provider().get_config()
     profiles_path_result = ProfilesPath.resolve()
     
     assign(socket,

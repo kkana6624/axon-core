@@ -89,18 +89,33 @@ defmodule Axon.App.LoadConfigTest do
     assert {:error, :empty_profiles} = Axon.App.LoadConfig.load_from_path(path)
   end
 
-  test "AXON-CONF-009 invalid AXON_PROFILES_PATH returns error" do
-    missing = Path.join(System.tmp_dir!(), "axon_missing_#{System.unique_integer([:positive])}.yaml")
+    test "AXON-CONF-009 invalid AXON_PROFILES_PATH returns error" do
 
-    with_env_var("AXON_PROFILES_PATH", missing, fn ->
-      assert {:error, {:profiles_not_found, ^missing}} =
-               Axon.App.LoadConfig.load(
-                 priv_path: "",
-                 user_path: "",
-                 provision: false
-               )
-    end)
-  end
+      missing = Path.join(System.tmp_dir!(), "axon_missing_#{System.unique_integer([:positive])}.yaml")
+
+  
+
+      with_env_var("AXON_PROFILES_PATH", missing, fn ->
+
+        # Force failure by ensuring other defaults are also missing/invalid in this call
+
+        assert {:error, {:profiles_not_found, ^missing}} =
+
+                 Axon.App.LoadConfig.load(
+
+                   priv_path: "/non/existent/priv.yaml",
+
+                   user_path: "/non/existent/user.yaml",
+
+                   provision: false
+
+                 )
+
+      end)
+
+    end
+
+  
 
   test "AXON-CONF-010 path resolution priority is env -> priv -> user" do
     env_path =

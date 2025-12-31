@@ -3,49 +3,75 @@ defmodule Axon.Adapters.Config.ProfilesPath do
 
   @default_env_var "AXON_PROFILES_PATH"
 
-  @spec resolve(keyword()) :: {:ok, Path.t()} | {:error, {:profiles_not_found, Path.t()}}
-  def resolve(opts \\ []) do
-    env_var = Keyword.get(opts, :env_var, @default_env_var)
-    priv_path = Keyword.get(opts, :priv_path, default_priv_path())
-    user_path = Keyword.get(opts, :user_path, default_user_path())
-    sample_path = Keyword.get(opts, :sample_path, default_sample_path())
-    provision? = Keyword.get(opts, :provision, true)
+      @spec resolve(keyword()) :: {:ok, Path.t()} | {:error, {:profiles_not_found, Path.t()}}
 
-    candidates =
-      [System.get_env(env_var), priv_path, user_path]
-      |> Enum.filter(&is_binary/1)
-      |> Enum.map(&String.trim/1)
-      |> Enum.reject(&(&1 == ""))
+      def resolve(opts \\ []) do
 
-    case Enum.find(candidates, &File.exists?/1) do
-      nil ->
-        if provision? do
-          provision_sample(user_path, sample_path)
-        else
-          missing = List.first(candidates) || user_path
-          {:error, {:profiles_not_found, missing}}
+        env_var = Keyword.get(opts, :env_var, @default_env_var)
+
+        
+
+        # Priority order for discovery (Architecture 6.4):
+
+        # 1. Environment variable
+
+        # 2. Application bundled default (priv)
+
+        # 3. User directory (user)
+
+        
+
+        # Options can be used to override the defaults for (2) and (3)
+
+        priv_path = Keyword.get(opts, :priv_path, default_priv_path())
+
+        user_path = Keyword.get(opts, :user_path, default_user_path())
+
+        
+
+        candidates =
+
+          [
+
+            System.get_env(env_var),
+
+            priv_path,
+
+            user_path
+
+          ]
+
+          |> Enum.filter(&is_binary/1)
+
+          |> Enum.map(&String.trim/1)
+
+          |> Enum.reject(&(&1 == ""))
+
+          |> Enum.uniq()
+
+    
+
+        case Enum.find(candidates, &File.exists?/1) do
+
+          nil ->
+
+            # Error hint priority: env (if set), else first candidate, else user_path
+
+            missing = System.get_env(env_var) || List.first(candidates) || user_path
+
+            {:error, {:profiles_not_found, missing}}
+
+    
+
+          path ->
+
+            {:ok, path}
+
         end
 
-      path ->
-        {:ok, path}
-    end
-  end
+      end
 
-  defp provision_sample(target_path, sample_path) do
-    if is_binary(target_path) and target_path != "" and 
-       is_binary(sample_path) and File.exists?(sample_path) do
-      
-      File.mkdir_p!(Path.dirname(target_path))
-      File.copy!(sample_path, target_path)
-      {:ok, target_path}
-    else
-      {:error, {:profiles_not_found, target_path}}
-    end
-  rescue
-    _ -> {:error, {:profiles_not_found, target_path}}
-  end
-
-  defp default_priv_path do
+  def default_priv_path do
     priv_dir = :code.priv_dir(:axon)
 
     case priv_dir do
@@ -55,7 +81,7 @@ defmodule Axon.Adapters.Config.ProfilesPath do
     end
   end
 
-  defp default_sample_path do
+  def default_sample_path do
     priv_dir = :code.priv_dir(:axon)
 
     case priv_dir do
@@ -65,7 +91,7 @@ defmodule Axon.Adapters.Config.ProfilesPath do
     end
   end
 
-  defp default_user_path do
+  def default_user_path do
     case :os.type() do
       {:win32, _} ->
         local_app_data = System.get_env("LOCALAPPDATA") || System.get_env("APPDATA")

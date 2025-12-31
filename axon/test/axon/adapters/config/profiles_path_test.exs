@@ -29,14 +29,16 @@ defmodule Axon.Adapters.Config.ProfilesPathTest do
     assert path == user_path
   end
 
-  test "provisions sample file when no candidates exist", %{user_path: user_path, sample_path: sample_path} do
+  test "returns error when no candidates exist", %{user_path: user_path} do
     # File doesn't exist yet
     refute File.exists?(user_path)
 
-    # Resolve should copy sample to user_path
-    assert {:ok, path} = ProfilesPath.resolve(user_path: user_path, sample_path: sample_path)
-    assert path == user_path
-    assert File.exists?(user_path)
-    assert File.read!(user_path) =~ "version: 1"
+    # Resolve should return error. 
+    # Since we provide user_path and priv_path in opts, and no env var is set,
+    # it should report the first candidate which is priv_path.
+    assert {:error, {:profiles_not_found, "/non/existent/priv.yaml"}} = 
+      ProfilesPath.resolve(user_path: user_path, priv_path: "/non/existent/priv.yaml")
+    
+    refute File.exists?(user_path)
   end
 end

@@ -17,7 +17,7 @@ defmodule Axon.App.ExecuteMacro do
     reply_to = Keyword.get(opts, :reply_to, self())
     owner_pid = Keyword.get(opts, :owner_pid, self())
 
-    tap_opts = Keyword.take(opts, [:config_loader, :engine, :clock])
+    tap_opts = Keyword.take(opts, [:config_provider, :config_loader, :engine, :clock])
 
     case TapMacro.preflight(payload, tap_opts) do
       {:rejected, ack} ->

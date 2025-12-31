@@ -9,7 +9,8 @@ import Config
 
 config :axon,
   generators: [timestamp_type: :utc_datetime],
-  macro_engine_module: Axon.Adapters.MacroEngine.NifEngine
+  macro_engine_module: Axon.Adapters.MacroEngine.NifEngine,
+  config_provider: Axon.App.ConfigStore
 
 config :axon, :remote_address,
   allow_private: true,

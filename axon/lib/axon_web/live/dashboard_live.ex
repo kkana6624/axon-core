@@ -1,22 +1,22 @@
 defmodule AxonWeb.DashboardLive do
   use AxonWeb, :live_view
 
-  alias Axon.App.LoadConfig
-  alias Axon.App.ExecuteMacro
   alias Axon.App.Setup.MdnsServer
   alias Axon.App.Execution.MacroLog
+
+  defp config_provider, do: Application.get_env(:axon, :config_provider)
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      :timer.send_interval(5000, :tick)
+      config_provider().subscribe()
     end
 
     {:ok, assign_data(socket)}
   end
 
   @impl true
-  def handle_info(:tick, socket) do
+  def handle_info({:config_updated, _ref}, socket) do
     {:noreply, assign_data(socket)}
   end
 
@@ -38,7 +38,7 @@ defmodule AxonWeb.DashboardLive do
   end
 
   defp assign_data(socket) do
-    config_result = LoadConfig.load()
+    config_result = config_provider().get_config()
     mdns_status = MdnsServer.get_status()
     macro_logs = MacroLog.get_recent()
     

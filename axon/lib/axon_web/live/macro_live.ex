@@ -4,12 +4,15 @@ defmodule AxonWeb.MacroLive do
   use AxonWeb, :live_view
 
   alias Axon.App.ExecuteMacro
-  alias Axon.App.LoadConfig
+
+  defp config_provider, do: Application.get_env(:axon, :config_provider)
 
   @impl true
   def mount(_params, _session, socket) do
     socket =
       if connected?(socket) do
+        config_provider().subscribe()
+        
         push_event(socket, "server_info", %{
           "version" => Mix.Project.config()[:version],
           "capabilities" => ["tap_macro", "panic", "vibrate"]
@@ -18,19 +21,24 @@ defmodule AxonWeb.MacroLive do
         socket
       end
 
-    case LoadConfig.load() do
-      {:ok, config} ->
-        # Select first profile by default
-        current_profile = List.first(config.profiles)
-        {:ok, assign(socket, config: config, current_profile: current_profile, status: :ready)}
+    {:ok, assign_data(socket)}
+  end
 
-      {:error, _reason} ->
-        if Mix.env() == :test do
-          {:ok, assign(socket, config: nil, current_profile: nil, status: :ready)}
-        else
-          {:ok, redirect(socket, to: "/setup")}
-        end
-    end
+  @impl true
+  def handle_info({:config_updated, _ref}, socket) do
+    {:noreply, assign_data(socket)}
+  end
+
+  @impl true
+  def handle_info({:emit_macro_result, payload}, socket) do
+    status =
+      case payload["status"] do
+        "ok" -> :ready
+        "panic" -> :panic
+        _ -> :error
+      end
+
+    {:noreply, socket |> assign(status: status) |> push_event("macro_result", payload)}
   end
 
   @impl true
@@ -205,15 +213,25 @@ defmodule AxonWeb.MacroLive do
     {:noreply, assign(socket, status: :ready)}
   end
 
-  @impl true
-  def handle_info({:emit_macro_result, payload}, socket) do
-    status =
-      case payload["status"] do
-        "ok" -> :ready
-        "panic" -> :panic
-        _ -> :error
-      end
+  defp assign_data(socket) do
+    case config_provider().get_config() do
+      {:ok, config} ->
+        # Select first profile by default if not set
+        current_profile = socket.assigns[:current_profile] || List.first(config.profiles)
 
-    {:noreply, socket |> assign(status: status) |> push_event("macro_result", payload)}
+        assign(socket,
+          config: config,
+          current_profile: current_profile,
+          status: socket.assigns[:status] || :ready
+        )
+
+      {:error, _reason} ->
+        if Mix.env() == :test do
+          assign(socket, config: nil, current_profile: nil, status: socket.assigns[:status] || :ready)
+        else
+          # SetupPlug will handle redirect, but for robustness:
+          assign(socket, config: nil, current_profile: nil, status: :error)
+        end
+    end
   end
 end

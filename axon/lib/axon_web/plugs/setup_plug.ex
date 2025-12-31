@@ -3,7 +3,7 @@ defmodule AxonWeb.Plugs.SetupPlug do
 
   import Plug.Conn
 
-  alias Axon.App.LoadConfig
+  defp config_provider, do: Application.get_env(:axon, :config_provider)
 
   @setup_path "/setup"
   @test_env Mix.env() == :test
@@ -14,7 +14,7 @@ defmodule AxonWeb.Plugs.SetupPlug do
     if bypass?(conn) do
       conn
     else
-      case LoadConfig.load() do
+      case config_provider().get_config() do
         {:ok, _config} ->
           conn
 
