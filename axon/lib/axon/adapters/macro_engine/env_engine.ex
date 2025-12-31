@@ -15,6 +15,7 @@ defmodule Axon.Adapters.MacroEngine.EnvEngine do
   def key_down(_key), do: step_result()
   def key_up(_key), do: step_result()
   def key_tap(_key), do: step_result()
+  def execute_sequence(_sequence), do: step_result()
 
   defp step_result do
     opts = Application.get_env(:axon, :macro_engine, @default_opts)

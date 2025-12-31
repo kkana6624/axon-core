@@ -7,12 +7,18 @@ defmodule Axon.Application do
 
   @impl true
   def start(_type, _args) do
+    # Ensure initial config exists
+    _ = Axon.App.Setup.ProvisionProfiles.ensure_present()
+
     children = [
       AxonWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:axon, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Axon.PubSub},
+      Axon.App.ConfigStore,
+      Axon.App.Execution.MacroLog,
       Axon.App.Execution.SingleRunner,
       Axon.App.Execution.ShutdownPanic,
+      Axon.App.Setup.MdnsServer,
       # Start a worker by calling: Axon.Worker.start_link(arg)
       # {Axon.Worker, arg},
       # Start to serve requests, typically the last entry

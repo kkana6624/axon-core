@@ -8,11 +8,19 @@
 import Config
 
 config :axon,
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  macro_engine_module: Axon.Adapters.MacroEngine.NifEngine,
+  config_provider: Axon.App.ConfigStore
 
 config :axon, :remote_address,
   allow_private: true,
   allow_loopback: true
+
+config :axon, :mdns,
+  auto_start: true,
+  service_type: "_axon-macro._tcp.local.",
+  instance_name: "AxonServer",
+  port: 4000
 
 # Configure the endpoint
 config :axon, AxonWeb.Endpoint,

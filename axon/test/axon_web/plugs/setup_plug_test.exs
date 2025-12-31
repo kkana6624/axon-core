@@ -1,5 +1,6 @@
 defmodule AxonWeb.Plugs.SetupPlugTest do
   use AxonWeb.ConnCase, async: false
+  import Phoenix.LiveViewTest
 
   setup do
     original = System.get_env("AXON_PROFILES_PATH")
@@ -35,11 +36,11 @@ defmodule AxonWeb.Plugs.SetupPlugTest do
     path = write_tmp_profiles!("profiles:\n  - name: \"Default\"\n")
     System.put_env("AXON_PROFILES_PATH", path)
 
-    conn = get(conn, ~p"/setup")
+    {:ok, view, html} = live(conn, ~p"/setup")
 
-    assert html_response(conn, 200) =~ "E_CONFIG_INVALID"
-    assert html_response(conn, 200) =~ "missing_version"
-    assert html_response(conn, 200) =~ "AXON_PROFILES_PATH"
+    assert html =~ "Axon Setup Wizard"
+    assert render(view) =~ "Configuration Error"
+    assert render(view) =~ "AXON_PROFILES_PATH"
   end
 
   test "AXON-SETUP-003 when configured, normal pages are reachable", %{conn: conn} do
@@ -54,6 +55,6 @@ defmodule AxonWeb.Plugs.SetupPlugTest do
     System.put_env("AXON_PROFILES_PATH", path)
 
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Peace of mind from prototype to production"
+    assert html_response(conn, 200) =~ "AXON Dashboard"
   end
 end

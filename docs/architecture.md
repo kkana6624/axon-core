@@ -19,13 +19,36 @@ Android端末を操作端末とし、Windows PC上のターゲットアプリに
 # Section 2: Backend Server (Elixir/Phoenix)
 
 ## 2.1 主要コンポーネント
-- **ConfigManager:** - `profiles.yaml` を読み込み、Ecto Schemaでバリデーション。
+- **ConfigProvider（設定取得インターフェース）:** - 「設定データの取得/購読」を抽象化する Behavior。
+    - UseCase/LiveView/TapMacro は「どのプロセス/どの実装か」を知らない。
+    - テストはプロセスを立てずに Static 実装へ差し替え可能。
+- **LoadConfig（設定ロード/検証）:** - `profiles.yaml` を読み込み、構造・制約（version, profiles, key, wait等）を検証して `Config` を返す純粋寄りUseCase。
     - 不正なキーコードが存在する場合は、エラー画面を表示し再設定フローへ誘導する（プロセスを落とさない）。
     - 入力上限（Boundary Check）をElixir側でもバリデーションする。
+- **ConfigStore（Productionの実装）:** - ConfigProvider を実装する GenServer。
+    - メモリに最新 `Config` を保持し、ファイル変更検知時に再ロードして PubSub 通知する。
+- **ProvisionProfiles（初回ファイル生成）:** - 初回に `profiles.yaml.sample` をユーザー領域へコピーする処理。
+    - 「読み込み（LoadConfig）」や「パス解決（ProfilesPath）」から分離し、起動直後に一度だけ実行する。
 - **MacroChannel:** - Androidからの `tap_macro` イベントを受信。
     - 実装は Phoenix LiveView の `handle_event/3` をデファクトとして採用する（※「Channel」は論理名）。
     - シーケンス（down -> wait -> up）を非同期に制御。
 - **SetupPlug:** - 未設定時、全リクエストを `/setup`（ウィザード）へ強制リダイレクト。
+
+## 2.1.1 設定管理（Single Source of Truth）
+目的は「設定の取得先を1箇所に固定し、I/Oと購読を隠蔽する」こと。
+
+- **依存方向**
+  - 内側（UseCase/Domain）は ConfigStore（プロセス実装）に依存しない
+  - 外側（Framework/Adapter）が ConfigProvider の具体実装を選ぶ
+
+- **データフロー（推奨）**
+  1. `Application.start` 直後に `ProvisionProfiles.ensure_present/1` を1回実行
+  2. `ConfigStore` が `LoadConfig.load/1` で初期ロードし、以後はメモリから返す
+  3. LiveView は `ConfigProvider.subscribe/0` で購読し、通知が来たら `get_config/0` で再取得
+
+- **PubSubの方針（テスト安定性のため固定化）**
+  - Topic は固定文字列（例: `"config"`）を採用し、動的に増やさない
+  - DIは「プロセス名」ではなく「Behavior実装モジュール」を注入する
 
 ## 2.2 データ型定義 (Macro Sequence)
 マクロは以下の構造で管理する。
@@ -90,8 +113,17 @@ Android(WebView) から LiveView に送るイベント。
 `windows-rs` の定数と1対1で対応する `NifUnitEnum` を実装。
 
 ## 3.2 具備すべき関数 (NIFs)
-1. `send_input(actions: Vec<Action>)`: 仮想入力の発行。
-2. `get_nic_capabilities()`: NICの並立性（Station + P2P）を `WlanQueryInterface` で取得。
+1. `execute_sequence(actions: Vec<Action>)`: アクション列の一括実行。
+   - `Action` 型定義 (Rust):
+     ```rust
+     pub enum Action {
+         KeyDown(Key),
+         KeyUp(Key),
+         KeyTap(Key),
+         Wait(u32), // milliseconds
+     }
+     ```
+2. `get_nic_capabilities()`: ...
 3. `run_privileged_command(cmd: String)`: `ShellExecuteExW` を `runas` で叩きUAC昇格を実行。
 4. `start_mdns_broadcast(name: String, port: u16)`: `mdns-sd` によるサービス広報。
 
@@ -204,6 +236,38 @@ profiles:
 - 内側（Domain/UseCase）は Phoenix/Rustler/Windows API に依存しない
 - 外側（Web/Infra/Native）は内側に依存してよい
 - 例外（妥協）: Phoenix LiveView のイベント受信はFrameworkに属するため、UseCase呼び出しの薄いアダプタ層として実装する
+
+## 8.1.1 依存性に関する注意点（重要）
+本プロジェクトで過去に不安定化の原因になったポイントを、ルールとして明記する。
+
+- **内側（Domain/UseCase）が依存してよいもの / いけないもの**
+  - 依存してよい: 純粋なデータ構造、Behavior（抽象）、副作用を隠蔽したPort
+  - 依存してはいけない: Phoenix（LiveView/Endpoint/Router）、GenServerの名前付きプロセス、PubSubトピック、FileSystem監視、環境変数/OS判定などのI/O実装詳細
+
+- **設定管理（Config）で守るべき依存方向**
+  - UseCase/Domainは「設定取得」を `ConfigProvider` の抽象に対して行う
+  - Productionでの実体（例: `ConfigStore` GenServer、ファイル監視、PubSub）は外側（Adapter）に閉じ込める
+
+- **DI（依存性注入）の原則**
+  - 注入単位は「プロセス名」ではなく「Behavior実装モジュール」に統一する
+  - URL/クエリパラメータでモジュール名やプロセス名を渡して切り替える方式は採用しない（LiveViewライフサイクルと文字列↔アトム変換で破綻しやすい）
+
+- **PubSub/通知の設計上の注意（テスト安定性）**
+  - Topicは固定文字列にし、動的Topic（テストごとに変化する名前等）を増やさない
+  - UIは「通知が来たら再取得」モデルを基本とし、通知ペイロードに状態を過剰に載せない（差分同期の複雑化を防ぐ）
+
+- **プロビジョニング（初回ファイル生成）の分離**
+  - `resolve` のような「参照系API」に副作用（ファイルコピー/ディレクトリ作成）を入れない
+  - 初回コピーは起動直後に1回だけ実行するUseCaseとして分離する（再読み込みやテストで副作用が反復しない）
+
+- **テストの原則（決定性の確保）**
+  - ExUnitのasyncでも壊れないよう、テストは原則「プロセス不要」な実装（例: `StaticConfigProvider`）を注入する
+  - どうしても非同期（通知）を扱うテストでは、観測点（`assert_receive` できるメッセージ）を設計に含める
+
+- **アンチパターン（禁止）**
+  - LiveViewやUseCaseが `GenServer.whereis/1` や `name:` を前提に動く
+  - 「設定取得」のために毎回ディスクI/O（YAML読込）を行う（低速化＋レースの温床）
+  - タイマーで定期的に設定を再ロードして同期を“なんとなく”成立させる（本質的な境界問題を隠すだけ）
 
 ## 8.2 Elixir側のレイヤ案
 ### Entities（Domain）

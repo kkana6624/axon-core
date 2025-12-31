@@ -40,6 +40,23 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 
+// Android Haptic Feedback bridge
+window.addEventListener("phx:vibrate", (e) => {
+  if (navigator.vibrate) {
+    navigator.vibrate(e.detail.ms || 50);
+  }
+});
+
+// Simple Toast / Status feedback for mobile UI
+window.addEventListener("phx:macro_ack", (e) => {
+  const toast = document.getElementById("status-toast");
+  if (toast && !e.detail.accepted) {
+    toast.innerText = `Error: ${e.detail.reason}`;
+    toast.classList.remove("opacity-0");
+    setTimeout(() => toast.classList.add("opacity-0"), 2000);
+  }
+});
+
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session

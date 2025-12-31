@@ -488,4 +488,14 @@ defmodule AxonWeb.MacroLiveTest do
       "request_id" => "00000000-0000-0000-0000-00000000WS02B"
     }, 1_000)
   end
+
+  test "AXON-DISC-001 server_info is pushed on mount", %{conn: conn} do
+    configure_ok!()
+    {:ok, view, _html} = live(conn, ~p"/macro")
+
+    assert_push_event_exact(view, "server_info", %{
+      "version" => "0.1.0",
+      "capabilities" => ["tap_macro", "panic", "vibrate"]
+    })
+  end
 end

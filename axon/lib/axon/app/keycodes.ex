@@ -3,29 +3,34 @@ defmodule Axon.App.Keycodes do
 
   @version 1
 
-  # Source of truth for the generated artifact `priv/keycodes.json`.
-  # Keep this list deterministic.
-  @keys [
-    "VK_A",
-    "VK_ENTER",
-    "VK_LCTRL",
-    "VK_LSHIFT",
-    "VK_S"
-  ]
-
-  @type key :: String.t()
-
-  @spec keys() :: [key()]
-  def keys, do: @keys
-
   @spec expected_json() :: String.t()
   def expected_json do
-    obj = Jason.OrderedObject.new([
-      {"version", @version},
-      {"keys", @keys}
-    ])
+    keys_json =
+      try do
+        Axon.Adapters.MacroEngine.NifEngine.dump_keycodes_nif()
+      rescue
+        _ -> "[]"
+      catch
+        _, _ -> "[]"
+      end
+
+    keys = Jason.decode!(keys_json)
+
+    obj =
+      Jason.OrderedObject.new([
+        {"version", @version},
+        {"keys", keys}
+      ])
 
     Jason.encode!(obj, pretty: true) <> "\n\n"
+  end
+
+  @spec keys() :: [String.t()]
+  def keys do
+    case Jason.decode(expected_json()) do
+      {:ok, %{"keys" => keys}} -> Enum.map(keys, fn %{"name" => name} -> name end)
+      _ -> []
+    end
   end
 
   @spec default_path() :: Path.t()

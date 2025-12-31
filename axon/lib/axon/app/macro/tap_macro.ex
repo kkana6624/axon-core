@@ -40,12 +40,16 @@ defmodule Axon.App.Macro.TapMacro do
     {:rejected, %{"accepted" => false, "reason" => "invalid_request", "request_id" => nil}}
   end
 
+  defp config_provider, do: Application.get_env(:axon, :config_provider)
+
   @spec preflight(map(), keyword()) ::
           {:rejected, ack_payload()} | {:accepted, ack_payload(), exec_spec()}
   def preflight(payload, opts \\ [])
 
   def preflight(payload, opts) when is_map(payload) do
-    config_loader = Keyword.get(opts, :config_loader, LoadConfig)
+    # Support both config_provider (new) and config_loader (legacy)
+    provider = Keyword.get(opts, :config_provider) || Keyword.get(opts, :config_loader) || config_provider()
+    
     engine =
       Keyword.get(
         opts,
@@ -61,7 +65,7 @@ defmodule Axon.App.Macro.TapMacro do
         profile = Map.get(payload, "profile")
         button_id = Map.get(payload, "button_id")
 
-        case config_loader.load() do
+        case fetch_config(provider) do
           {:ok, config} ->
             with :ok <- ensure_macro_exists(config, profile, button_id),
                  :ok <- ensure_engine_available(engine) do
@@ -153,12 +157,26 @@ defmodule Axon.App.Macro.TapMacro do
 
   defp execute_sequence(sequence, engine, clock, profile, button_id, request_id)
        when is_list(sequence) and is_atom(engine) do
-    Enum.reduce_while(sequence, :ok, fn step, :ok ->
-      case execute_step(step, engine, clock, profile, button_id, request_id) do
-        :ok -> {:cont, :ok}
-        {:error, _, _} = err -> {:halt, err}
+    _ = Code.ensure_loaded(engine)
+
+    if function_exported?(engine, :execute_sequence, 1) do
+      # Optimization: Execute entire sequence at once in the engine (Rust)
+      case engine.execute_sequence(sequence) do
+        :ok -> :ok
+        {:error, :engine_failure, message} -> {:error, :engine_failure, message}
+        {:error, :engine_unavailable, message} -> {:error, :engine_unavailable, message}
+        {:error, :config_invalid, message} -> {:error, :config_invalid, message}
+        _ -> {:error, :engine_failure, "engine failure"}
       end
-    end)
+    else
+      # Fallback: Execute step-by-step in Elixir
+      Enum.reduce_while(sequence, :ok, fn step, :ok ->
+        case execute_step(step, engine, clock, profile, button_id, request_id) do
+          :ok -> {:cont, :ok}
+          {:error, _, _} = err -> {:halt, err}
+        end
+      end)
+    end
   rescue
     _ -> {:error, :internal, "internal error"}
   catch
@@ -263,6 +281,16 @@ defmodule Axon.App.Macro.TapMacro do
   end
 
   defp validate_payload(_), do: {:error, "invalid_request"}
+
+  defp fetch_config(provider) do
+    _ = Code.ensure_loaded(provider)
+
+    cond do
+      function_exported?(provider, :get_config, 0) -> provider.get_config()
+      function_exported?(provider, :load, 0) -> provider.load()
+      true -> {:error, :not_configured}
+    end
+  end
 
   defp ensure_engine_available(engine) do
     _ = Code.ensure_loaded(engine)

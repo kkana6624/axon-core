@@ -21,9 +21,18 @@ defmodule Axon.Adapters.Config.KeycodesGateway do
 
   defp decode(json) when is_binary(json) do
     with {:ok, %{"version" => 1, "keys" => keys}} <- Jason.decode(json),
-         true <- is_list(keys),
-         true <- Enum.all?(keys, &is_binary/1) do
-      {:ok, MapSet.new(keys)}
+         true <- is_list(keys) do
+      valid_keys =
+        Enum.reduce_while(keys, MapSet.new(), fn
+          %{"name" => name}, acc when is_binary(name) -> {:cont, MapSet.put(acc, name)}
+          name, acc when is_binary(name) -> {:cont, MapSet.put(acc, name)} # Backward compat
+          _, _ -> {:halt, :error}
+        end)
+
+      case valid_keys do
+        :error -> {:error, :invalid_keycodes_format}
+        set -> {:ok, set}
+      end
     else
       {:ok, %{"version" => version}} ->
         {:error, {:unsupported_keycodes_version, version}}

@@ -5,15 +5,19 @@ defmodule Axon.App.Execution.ShutdownPanic do
 
   alias Axon.App.Execution.SingleRunner
 
-  @default_engine Axon.Adapters.MacroEngine.EnvEngine
-
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   @impl true
   def init(opts) do
-    engine = Keyword.get(opts, :engine, @default_engine)
+    engine =
+      Keyword.get(
+        opts,
+        :engine,
+        Application.get_env(:axon, :macro_engine_module, Axon.Adapters.MacroEngine.EnvEngine)
+      )
+
     {:ok, %{engine: engine}}
   end
 

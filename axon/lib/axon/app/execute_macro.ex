@@ -4,6 +4,7 @@ defmodule Axon.App.ExecuteMacro do
   require Logger
 
   alias Axon.App.Execution.SingleRunner
+  alias Axon.App.Execution.MacroLog
   alias Axon.App.Macro.TapMacro
   alias Axon.Adapters.MacroEngine.EnvEngine
 
@@ -16,7 +17,7 @@ defmodule Axon.App.ExecuteMacro do
     reply_to = Keyword.get(opts, :reply_to, self())
     owner_pid = Keyword.get(opts, :owner_pid, self())
 
-    tap_opts = Keyword.take(opts, [:config_loader, :engine, :clock])
+    tap_opts = Keyword.take(opts, [:config_provider, :config_loader, :engine, :clock])
 
     case TapMacro.preflight(payload, tap_opts) do
       {:rejected, ack} ->
@@ -62,6 +63,15 @@ defmodule Axon.App.ExecuteMacro do
                Logger.info(
                  "macro_finished profile=#{profile} button_id=#{button_id} request_id=#{request_id} result=#{result} duration_ms=#{duration_ms}"
                )
+
+               MacroLog.add(%{
+                 profile: profile,
+                 button_id: button_id,
+                 request_id: request_id,
+                 result: result,
+                 duration_ms: duration_ms,
+                 timestamp: DateTime.utc_now()
+               })
 
                send(reply_to, {:emit_macro_result, result_payload})
              end) do
@@ -115,6 +125,11 @@ defmodule Axon.App.ExecuteMacro do
 
   def panic(_payload, _opts) do
     {:rejected, %{"accepted" => false, "reason" => "invalid_request", "request_id" => nil}}
+  end
+
+  @spec panic_reset() :: :ok
+  def panic_reset do
+    SingleRunner.reset()
   end
 
   defp try_engine_panic(engine) do
