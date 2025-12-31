@@ -17,8 +17,8 @@ defmodule AxonWeb.Router do
   scope "/", AxonWeb do
     pipe_through :browser
 
-    get "/setup", SetupController, :index
-    get "/", PageController, :home
+    live "/setup", SetupLive
+    live "/", DashboardLive
 
     live "/macro", MacroLive
 

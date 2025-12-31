@@ -14,6 +14,12 @@ config :axon, :remote_address,
   allow_private: true,
   allow_loopback: true
 
+config :axon, :mdns,
+  auto_start: true,
+  service_type: "_axon-macro._tcp",
+  instance_name: "AxonServer",
+  port: 4000
+
 # Configure the endpoint
 config :axon, AxonWeb.Endpoint,
   url: [host: "localhost"],

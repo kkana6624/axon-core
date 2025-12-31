@@ -38,7 +38,7 @@ defmodule AxonWeb.Plugs.SetupPlugTest do
     conn = get(conn, ~p"/setup")
 
     assert html_response(conn, 200) =~ "E_CONFIG_INVALID"
-    assert html_response(conn, 200) =~ "missing_version"
+    assert html_response(conn, 200) =~ "Axon Setup Wizard"
     assert html_response(conn, 200) =~ "AXON_PROFILES_PATH"
   end
 
@@ -54,6 +54,6 @@ defmodule AxonWeb.Plugs.SetupPlugTest do
     System.put_env("AXON_PROFILES_PATH", path)
 
     conn = get(conn, ~p"/")
-    assert html_response(conn, 200) =~ "Peace of mind from prototype to production"
+    assert html_response(conn, 200) =~ "AXON Dashboard"
   end
 end

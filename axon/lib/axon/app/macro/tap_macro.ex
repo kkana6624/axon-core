@@ -153,12 +153,26 @@ defmodule Axon.App.Macro.TapMacro do
 
   defp execute_sequence(sequence, engine, clock, profile, button_id, request_id)
        when is_list(sequence) and is_atom(engine) do
-    Enum.reduce_while(sequence, :ok, fn step, :ok ->
-      case execute_step(step, engine, clock, profile, button_id, request_id) do
-        :ok -> {:cont, :ok}
-        {:error, _, _} = err -> {:halt, err}
+    _ = Code.ensure_loaded(engine)
+
+    if function_exported?(engine, :execute_sequence, 1) do
+      # Optimization: Execute entire sequence at once in the engine (Rust)
+      case engine.execute_sequence(sequence) do
+        :ok -> :ok
+        {:error, :engine_failure, message} -> {:error, :engine_failure, message}
+        {:error, :engine_unavailable, message} -> {:error, :engine_unavailable, message}
+        {:error, :config_invalid, message} -> {:error, :config_invalid, message}
+        _ -> {:error, :engine_failure, "engine failure"}
       end
-    end)
+    else
+      # Fallback: Execute step-by-step in Elixir
+      Enum.reduce_while(sequence, :ok, fn step, :ok ->
+        case execute_step(step, engine, clock, profile, button_id, request_id) do
+          :ok -> {:cont, :ok}
+          {:error, _, _} = err -> {:halt, err}
+        end
+      end)
+    end
   rescue
     _ -> {:error, :internal, "internal error"}
   catch

@@ -90,8 +90,17 @@ Android(WebView) から LiveView に送るイベント。
 `windows-rs` の定数と1対1で対応する `NifUnitEnum` を実装。
 
 ## 3.2 具備すべき関数 (NIFs)
-1. `send_input(actions: Vec<Action>)`: 仮想入力の発行。
-2. `get_nic_capabilities()`: NICの並立性（Station + P2P）を `WlanQueryInterface` で取得。
+1. `execute_sequence(actions: Vec<Action>)`: アクション列の一括実行。
+   - `Action` 型定義 (Rust):
+     ```rust
+     pub enum Action {
+         KeyDown(Key),
+         KeyUp(Key),
+         KeyTap(Key),
+         Wait(u32), // milliseconds
+     }
+     ```
+2. `get_nic_capabilities()`: ...
 3. `run_privileged_command(cmd: String)`: `ShellExecuteExW` を `runas` で叩きUAC昇格を実行。
 4. `start_mdns_broadcast(name: String, port: u16)`: `mdns-sd` によるサービス広報。
 
