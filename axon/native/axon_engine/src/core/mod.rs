@@ -1,4 +1,5 @@
 pub mod keys;
+pub mod actions;
 
 use keys::Key;
 use serde::Serialize;

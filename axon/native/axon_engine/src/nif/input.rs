@@ -1,5 +1,6 @@
 use rustler::Atom;
 use crate::core::keys::Key;
+use crate::core::actions::Action;
 
 rustler::atoms! {
     error,
@@ -32,6 +33,14 @@ pub fn key_up_nif(key: Key) -> Result<Atom, (Atom, Atom, String)> {
 #[rustler::nif]
 pub fn key_tap_nif(key: Key) -> Result<Atom, (Atom, Atom, String)> {
     match crate::windows::input::send_key_tap(key) {
+        Ok(_) => Ok(ok()),
+        Err(e) => Err((error(), engine_failure(), e.to_string())),
+    }
+}
+
+#[rustler::nif]
+pub fn execute_sequence_nif(actions: Vec<Action>) -> Result<Atom, (Atom, Atom, String)> {
+    match crate::windows::input::send_sequence(actions) {
         Ok(_) => Ok(ok()),
         Err(e) => Err((error(), engine_failure(), e.to_string())),
     }

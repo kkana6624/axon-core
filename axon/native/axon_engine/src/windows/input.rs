@@ -1,4 +1,5 @@
 use crate::core::keys::Key;
+use crate::core::actions::Action;
 
 #[cfg(target_os = "windows")]
 use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -37,6 +38,27 @@ pub fn send_key_up(key: Key) -> Result<(), String> {
 pub fn send_key_tap(key: Key) -> Result<(), String> {
     send_key_down(key)?;
     send_key_up(key)
+}
+
+pub fn send_sequence(actions: Vec<Action>) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        crate::core::actions::SequenceValidator::validate(&actions)?;
+        for action in actions {
+            match action {
+                Action::KeyDown(key) => send_key_down(key)?,
+                Action::KeyUp(key) => send_key_up(key)?,
+                Action::KeyTap(key) => send_key_tap(key)?,
+                Action::Wait(ms) => std::thread::sleep(std::time::Duration::from_millis(ms as u64)),
+            }
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = actions;
+        Err("Engine unavailable on non-Windows OS".to_string())
+    }
 }
 
 pub fn send_panic() -> Result<(), String> {

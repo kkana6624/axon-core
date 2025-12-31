@@ -1,6 +1,6 @@
-mod core;
-mod nif;
-mod windows;
+pub mod core;
+pub mod nif;
+pub mod windows;
 
 rustler::init!(
     "Elixir.Axon.Adapters.MacroEngine.NifEngine",

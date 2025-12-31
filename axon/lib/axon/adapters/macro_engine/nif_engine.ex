@@ -10,6 +10,7 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
   def key_down_nif(_key), do: :erlang.nif_error(:nif_not_loaded)
   def key_up_nif(_key), do: :erlang.nif_error(:nif_not_loaded)
   def key_tap_nif(_key), do: :erlang.nif_error(:nif_not_loaded)
+  def execute_sequence_nif(_actions), do: :erlang.nif_error(:nif_not_loaded)
   def panic_nif, do: :erlang.nif_error(:nif_not_loaded)
   def dump_keycodes_nif, do: :erlang.nif_error(:nif_not_loaded)
   def get_wlan_interfaces_nif, do: :erlang.nif_error(:nif_not_loaded)
@@ -66,6 +67,50 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
     _, _ -> @engine_unavailable
   end
 
+  def execute_sequence(sequence) when is_list(sequence) do
+    with {:ok, nif_actions} <- prepare_actions(sequence) do
+      execute_sequence_nif(nif_actions) |> normalize_nif_result()
+    end
+  rescue
+    _ -> @engine_unavailable
+  catch
+    :exit, _ -> @engine_unavailable
+    _, _ -> @engine_unavailable
+  end
+
+  defp prepare_actions(sequence) do
+    result =
+      Enum.reduce_while(sequence, {:ok, []}, fn step, {:ok, acc} ->
+        case map_step_to_nif(step) do
+          {:ok, nif_step} -> {:cont, {:ok, [nif_step | acc]}}
+          {:error, _} = err -> {:halt, err}
+        end
+      end)
+
+    case result do
+      {:ok, list} -> {:ok, Enum.reverse(list)}
+      err -> err
+    end
+  end
+
+  defp map_step_to_nif(%{"action" => "wait", "value" => v}), do: {:ok, {:wait, v}}
+  defp map_step_to_nif(%{"action" => "panic"}), do: {:ok, :panic}
+
+  defp map_step_to_nif(%{"action" => action, "key" => key}) do
+    with {:ok, atom_key} <- to_key_atom(key) do
+      case action do
+        "down" -> {:ok, {:key_down, atom_key}}
+        "up" -> {:ok, {:key_up, atom_key}}
+        "tap" -> {:ok, {:key_tap, atom_key}}
+        _ -> {:error, :invalid_action}
+      end
+    else
+      _ -> {:error, :invalid_key}
+    end
+  end
+
+  defp map_step_to_nif(_), do: {:error, :invalid_step}
+
   def panic do
     _ = panic_nif()
     :ok
@@ -74,6 +119,49 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
   catch
     :exit, _ -> :ok
     _, _ -> :ok
+  end
+
+  # Setup API
+  def get_wlan_interfaces do
+    case get_wlan_interfaces_nif() do
+      {:ok, json} ->
+        Jason.decode(json)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  rescue
+    _ -> @engine_unavailable
+  catch
+    :exit, _ -> @engine_unavailable
+    _, _ -> @engine_unavailable
+  end
+
+  def start_mdns(service_type, instance_name, port) do
+    start_mdns_nif(service_type, instance_name, port)
+  rescue
+    _ -> @engine_unavailable
+  catch
+    :exit, _ -> @engine_unavailable
+    _, _ -> @engine_unavailable
+  end
+
+  def stop_mdns(ref) do
+    stop_mdns_nif(ref)
+  rescue
+    _ -> :ok
+  catch
+    :exit, _ -> :ok
+    _, _ -> :ok
+  end
+
+  def run_privileged_command(cmd, params) do
+    run_privileged_command_nif(cmd, params)
+  rescue
+    _ -> @engine_unavailable
+  catch
+    :exit, _ -> @engine_unavailable
+    _, _ -> @engine_unavailable
   end
 
   defp normalize_nif_result({:ok, :ok}), do: :ok
