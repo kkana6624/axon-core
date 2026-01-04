@@ -46,12 +46,14 @@ defmodule Axon.App.Macro.TapMacroTest do
 
   test "rejects invalid payload (reason=invalid_request)" do
     assert {:rejected, %{"accepted" => false, "reason" => "invalid_request", "request_id" => nil}} =
-             TapMacro.call(%{"profile" => "Dev"}, config_loader: FakeConfigLoader, engine: FakeEngineOk)
+             TapMacro.call(%{"profile" => "Dev"},
+               config_loader: FakeConfigLoader,
+               engine: FakeEngineOk
+             )
   end
 
   test "rejects when not configured (reason=not_configured)" do
-    assert {:rejected,
-            %{"accepted" => false, "reason" => "not_configured", "request_id" => "r"}} =
+    assert {:rejected, %{"accepted" => false, "reason" => "not_configured", "request_id" => "r"}} =
              TapMacro.call(
                %{"profile" => "Dev", "button_id" => "b1", "request_id" => "r"},
                config_loader: FakeConfigLoaderError,
@@ -79,7 +81,8 @@ defmodule Axon.App.Macro.TapMacroTest do
   end
 
   test "accepts and returns ok result" do
-    assert {:accepted, %{"accepted" => true, "request_id" => "r"}, %{"status" => "ok", "request_id" => "r"}} =
+    assert {:accepted, %{"accepted" => true, "request_id" => "r"},
+            %{"status" => "ok", "request_id" => "r"}} =
              TapMacro.call(
                %{"profile" => "Dev", "button_id" => "b1", "request_id" => "r"},
                config_loader: FakeConfigLoader,
@@ -88,8 +91,7 @@ defmodule Axon.App.Macro.TapMacroTest do
   end
 
   test "accepts and returns error result" do
-    assert {:accepted,
-            %{"accepted" => true, "request_id" => "r"},
+    assert {:accepted, %{"accepted" => true, "request_id" => "r"},
             %{
               "status" => "error",
               "error_code" => "E_ENGINE_FAILURE",

@@ -37,6 +37,7 @@ defmodule Axon.Adapters.MacroEngine.NifEngine do
       :ok
     else
       elapsed = System.monotonic_time(:millisecond) - start_time
+
       if elapsed > timeout_ms do
         {:error, :timeout}
       else

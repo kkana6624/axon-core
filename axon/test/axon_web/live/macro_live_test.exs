@@ -271,13 +271,20 @@ defmodule AxonWeb.MacroLiveTest do
       "request_id" => "00000000-0000-0000-0000-00000000A002"
     })
 
-    assert_push_event_exact(view, "macro_result", %{
-      "status" => "ok",
-      "request_id" => "00000000-0000-0000-0000-00000000A001"
-    }, 1_000)
+    assert_push_event_exact(
+      view,
+      "macro_result",
+      %{
+        "status" => "ok",
+        "request_id" => "00000000-0000-0000-0000-00000000A001"
+      },
+      1_000
+    )
   end
 
-  test "AXON-EXEC-003 panic interrupts running macro and emits macro_result panic immediately", %{conn: conn} do
+  test "AXON-EXEC-003 panic interrupts running macro and emits macro_result panic immediately", %{
+    conn: conn
+  } do
     configure_ok!()
     Application.put_env(:axon, :macro_engine, available: true, result: :ok, delay_ms: 1_000)
 
@@ -303,18 +310,26 @@ defmodule AxonWeb.MacroLiveTest do
       "request_id" => "00000000-0000-0000-0000-00000000P001"
     })
 
-    assert_push_event_exact(view, "macro_result", %{
-      "status" => "panic",
-      "request_id" => "00000000-0000-0000-0000-00000000B001"
-    }, 300)
+    assert_push_event_exact(
+      view,
+      "macro_result",
+      %{
+        "status" => "panic",
+        "request_id" => "00000000-0000-0000-0000-00000000B001"
+      },
+      300
+    )
 
     %{proxy: {ref, _topic, _}} = view
 
-    refute_receive {^ref, {:push_event, "macro_result", %{"status" => "ok", "request_id" => "00000000-0000-0000-0000-00000000B001"}}},
+    refute_receive {^ref,
+                    {:push_event, "macro_result",
+                     %{"status" => "ok", "request_id" => "00000000-0000-0000-0000-00000000B001"}}},
                    500
   end
 
-  test "AXON-EXEC-004 after panic, next macro request is rejected until recovery (MVP: reject)", %{conn: conn} do
+  test "AXON-EXEC-004 after panic, next macro request is rejected until recovery (MVP: reject)",
+       %{conn: conn} do
     configure_ok!()
     Application.put_env(:axon, :macro_engine, available: true, result: :ok, delay_ms: 1_000)
 
@@ -340,10 +355,15 @@ defmodule AxonWeb.MacroLiveTest do
       "request_id" => "00000000-0000-0000-0000-00000000P002"
     })
 
-    assert_push_event_exact(view, "macro_result", %{
-      "status" => "panic",
-      "request_id" => "00000000-0000-0000-0000-00000000C001"
-    }, 300)
+    assert_push_event_exact(
+      view,
+      "macro_result",
+      %{
+        "status" => "panic",
+        "request_id" => "00000000-0000-0000-0000-00000000C001"
+      },
+      300
+    )
 
     render_hook(view, "tap_macro", %{
       "profile" => "Development",
@@ -358,7 +378,8 @@ defmodule AxonWeb.MacroLiveTest do
     })
   end
 
-  test "AXON-EXEC-002 repeat tap_macro within min interval is rejected (busy) even after completion", %{conn: conn} do
+  test "AXON-EXEC-002 repeat tap_macro within min interval is rejected (busy) even after completion",
+       %{conn: conn} do
     configure_ok!()
     Application.put_env(:axon, :tap_macro_min_interval_ms, 1_000)
     Application.put_env(:axon, :macro_engine, available: true, result: :ok, delay_ms: 0)
@@ -376,10 +397,15 @@ defmodule AxonWeb.MacroLiveTest do
       "request_id" => "00000000-0000-0000-0000-00000000D001"
     })
 
-    assert_push_event_exact(view, "macro_result", %{
-      "status" => "ok",
-      "request_id" => "00000000-0000-0000-0000-00000000D001"
-    }, 1_000)
+    assert_push_event_exact(
+      view,
+      "macro_result",
+      %{
+        "status" => "ok",
+        "request_id" => "00000000-0000-0000-0000-00000000D001"
+      },
+      1_000
+    )
 
     render_hook(view, "tap_macro", %{
       "profile" => "Development",
@@ -424,12 +450,17 @@ defmodule AxonWeb.MacroLiveTest do
       "request_id" => "00000000-0000-0000-0000-00000000WS01"
     })
 
-    assert_push_event_exact(view, "macro_result", %{
-      "status" => "error",
-      "error_code" => "E_TIMEOUT",
-      "message" => "timeout",
-      "request_id" => "00000000-0000-0000-0000-00000000WS01"
-    }, 1_000)
+    assert_push_event_exact(
+      view,
+      "macro_result",
+      %{
+        "status" => "error",
+        "error_code" => "E_TIMEOUT",
+        "message" => "timeout",
+        "request_id" => "00000000-0000-0000-0000-00000000WS01"
+      },
+      1_000
+    )
   end
 
   test "AXON-WS-002 timeout threshold is configurable", %{conn: conn} do
@@ -463,12 +494,17 @@ defmodule AxonWeb.MacroLiveTest do
       "request_id" => "00000000-0000-0000-0000-00000000WS02A"
     })
 
-    assert_push_event_exact(view, "macro_result", %{
-      "status" => "error",
-      "error_code" => "E_TIMEOUT",
-      "message" => "timeout",
-      "request_id" => "00000000-0000-0000-0000-00000000WS02A"
-    }, 1_000)
+    assert_push_event_exact(
+      view,
+      "macro_result",
+      %{
+        "status" => "error",
+        "error_code" => "E_TIMEOUT",
+        "message" => "timeout",
+        "request_id" => "00000000-0000-0000-0000-00000000WS02A"
+      },
+      1_000
+    )
 
     Application.put_env(:axon, :macro_result_timeout_ms, 200)
 
@@ -483,10 +519,15 @@ defmodule AxonWeb.MacroLiveTest do
       "request_id" => "00000000-0000-0000-0000-00000000WS02B"
     })
 
-    assert_push_event_exact(view, "macro_result", %{
-      "status" => "ok",
-      "request_id" => "00000000-0000-0000-0000-00000000WS02B"
-    }, 1_000)
+    assert_push_event_exact(
+      view,
+      "macro_result",
+      %{
+        "status" => "ok",
+        "request_id" => "00000000-0000-0000-0000-00000000WS02B"
+      },
+      1_000
+    )
   end
 
   test "AXON-DISC-001 server_info is pushed on mount", %{conn: conn} do

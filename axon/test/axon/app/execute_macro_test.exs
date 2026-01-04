@@ -243,7 +243,8 @@ defmodule Axon.App.ExecuteMacroTest do
                       "error_code" => "E_ENGINE_UNAVAILABLE",
                       "message" => "engine unavailable",
                       "request_id" => "r_unavail"
-                    }}, 1_000
+                    }},
+                   1_000
   end
 
   test "execution returns E_CONFIG_INVALID on invalid action step" do
@@ -263,7 +264,8 @@ defmodule Axon.App.ExecuteMacroTest do
                       "error_code" => "E_CONFIG_INVALID",
                       "message" => "invalid action",
                       "request_id" => "r_cfg"
-                    }}, 1_000
+                    }},
+                   1_000
   end
 
   test "execution returns E_INTERNAL when engine step raises" do
@@ -283,7 +285,8 @@ defmodule Axon.App.ExecuteMacroTest do
                       "error_code" => "E_INTERNAL",
                       "message" => "internal error",
                       "request_id" => "r_internal_raise"
-                    }}, 1_000
+                    }},
+                   1_000
   end
 
   test "execution returns E_INTERNAL when engine step exits" do
@@ -303,7 +306,8 @@ defmodule Axon.App.ExecuteMacroTest do
                       "error_code" => "E_INTERNAL",
                       "message" => "internal error",
                       "request_id" => "r_internal_exit"
-                    }}, 1_000
+                    }},
+                   1_000
   end
 
   test "AXON-EXEC-001 second request is busy while executing" do
@@ -387,7 +391,8 @@ defmodule Axon.App.ExecuteMacroTest do
                           "error_code" => "E_ENGINE_FAILURE",
                           "message" => "engine failure",
                           "request_id" => "r_err"
-                        }}, 1_000
+                        }},
+                       1_000
       end)
 
     assert err_log =~ "macro_finished"
@@ -402,11 +407,12 @@ defmodule Axon.App.ExecuteMacroTest do
 
     # 2. Macro should be rejected
     payload = %{"profile" => "Dev", "button_id" => "b1", "request_id" => "r_rejected"}
-    assert {:rejected, %{"accepted" => false, "reason" => "busy"}} = 
-             ExecuteMacro.tap_macro(payload, 
-               reply_to: self(), 
-               owner_pid: self(), 
-               config_loader: FakeConfigLoader, 
+
+    assert {:rejected, %{"accepted" => false, "reason" => "busy"}} =
+             ExecuteMacro.tap_macro(payload,
+               reply_to: self(),
+               owner_pid: self(),
+               config_loader: FakeConfigLoader,
                engine: EngineOk
              )
 
@@ -414,13 +420,14 @@ defmodule Axon.App.ExecuteMacroTest do
     assert :ok = ExecuteMacro.panic_reset()
 
     # 4. Macro should now be accepted
-    assert {:accepted, %{"accepted" => true, "request_id" => "r_accepted"}} = 
-             ExecuteMacro.tap_macro(%{payload | "request_id" => "r_accepted"}, 
-               reply_to: self(), 
-               owner_pid: self(), 
-               config_loader: FakeConfigLoader, 
+    assert {:accepted, %{"accepted" => true, "request_id" => "r_accepted"}} =
+             ExecuteMacro.tap_macro(%{payload | "request_id" => "r_accepted"},
+               reply_to: self(),
+               owner_pid: self(),
+               config_loader: FakeConfigLoader,
                engine: EngineOk
              )
+
     assert_receive {:emit_macro_result, %{"status" => "ok"}}, 1_000
   end
 end

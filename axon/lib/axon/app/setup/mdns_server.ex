@@ -64,6 +64,7 @@ defmodule Axon.App.Setup.MdnsServer do
   end
 
   defp wait_for_engine(_engine, 0), do: false
+
   defp wait_for_engine(engine, retries) do
     if engine.available?() do
       true

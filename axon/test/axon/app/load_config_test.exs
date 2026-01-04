@@ -89,33 +89,21 @@ defmodule Axon.App.LoadConfigTest do
     assert {:error, :empty_profiles} = Axon.App.LoadConfig.load_from_path(path)
   end
 
-    test "AXON-CONF-009 invalid AXON_PROFILES_PATH returns error" do
+  test "AXON-CONF-009 invalid AXON_PROFILES_PATH returns error" do
+    missing =
+      Path.join(System.tmp_dir!(), "axon_missing_#{System.unique_integer([:positive])}.yaml")
 
-      missing = Path.join(System.tmp_dir!(), "axon_missing_#{System.unique_integer([:positive])}.yaml")
+    with_env_var("AXON_PROFILES_PATH", missing, fn ->
+      # Force failure by ensuring other defaults are also missing/invalid in this call
 
-  
-
-      with_env_var("AXON_PROFILES_PATH", missing, fn ->
-
-        # Force failure by ensuring other defaults are also missing/invalid in this call
-
-        assert {:error, {:profiles_not_found, ^missing}} =
-
-                 Axon.App.LoadConfig.load(
-
-                   priv_path: "/non/existent/priv.yaml",
-
-                   user_path: "/non/existent/user.yaml",
-
-                   provision: false
-
-                 )
-
-      end)
-
-    end
-
-  
+      assert {:error, {:profiles_not_found, ^missing}} =
+               Axon.App.LoadConfig.load(
+                 priv_path: "/non/existent/priv.yaml",
+                 user_path: "/non/existent/user.yaml",
+                 provision: false
+               )
+    end)
+  end
 
   test "AXON-CONF-010 path resolution priority is env -> priv -> user" do
     env_path =
@@ -144,19 +132,33 @@ defmodule Axon.App.LoadConfigTest do
 
     # 1) env wins
     with_env_var("AXON_PROFILES_PATH", env_path, fn ->
-      assert {:ok, config} = Axon.App.LoadConfig.load(priv_path: priv_path, user_path: user_path, provision: false)
+      assert {:ok, config} =
+               Axon.App.LoadConfig.load(
+                 priv_path: priv_path,
+                 user_path: user_path,
+                 provision: false
+               )
+
       assert [%{name: "FromEnv"}] = config.profiles
     end)
 
     # 2) priv wins when env missing
     with_env_var("AXON_PROFILES_PATH", nil, fn ->
-      assert {:ok, config} = Axon.App.LoadConfig.load(priv_path: priv_path, user_path: user_path, provision: false)
+      assert {:ok, config} =
+               Axon.App.LoadConfig.load(
+                 priv_path: priv_path,
+                 user_path: user_path,
+                 provision: false
+               )
+
       assert [%{name: "FromPriv"}] = config.profiles
     end)
 
     # 3) user wins when env missing and priv missing
     with_env_var("AXON_PROFILES_PATH", nil, fn ->
-      assert {:ok, config} = Axon.App.LoadConfig.load(priv_path: "", user_path: user_path, provision: false)
+      assert {:ok, config} =
+               Axon.App.LoadConfig.load(priv_path: "", user_path: user_path, provision: false)
+
       assert [%{name: "FromUser"}] = config.profiles
     end)
   end
@@ -175,8 +177,7 @@ defmodule Axon.App.LoadConfigTest do
       """)
 
     assert {:error,
-            {:invalid_wait_has_key,
-             %{profile: "Development", button_id: "b1", sequence_index: 0}}} =
+            {:invalid_wait_has_key, %{profile: "Development", button_id: "b1", sequence_index: 0}}} =
              Axon.App.LoadConfig.load_from_path(path)
   end
 
@@ -213,8 +214,7 @@ defmodule Axon.App.LoadConfigTest do
       """)
 
     assert {:error,
-            {:invalid_wait_value,
-             %{profile: "Development", button_id: "b1", sequence_index: 0}}} =
+            {:invalid_wait_value, %{profile: "Development", button_id: "b1", sequence_index: 0}}} =
              Axon.App.LoadConfig.load_from_path(path)
   end
 
@@ -319,7 +319,13 @@ defmodule Axon.App.LoadConfigTest do
 
     assert {:error,
             {:wait_total_exceeded,
-             %{profile: "Development", button_id: "b1", sequence_index: 3, limit_ms: 30000, total_ms: 30001}}} =
+             %{
+               profile: "Development",
+               button_id: "b1",
+               sequence_index: 3,
+               limit_ms: 30000,
+               total_ms: 30001
+             }}} =
              Axon.App.LoadConfig.load_from_path(path)
   end
 

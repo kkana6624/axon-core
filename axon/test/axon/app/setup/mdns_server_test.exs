@@ -1,5 +1,6 @@
 defmodule Axon.App.Setup.MdnsServerTest do
-  use ExUnit.Case, async: false # Async false because we are testing GenServer with side effects on Mock
+  # Async false because we are testing GenServer with side effects on Mock
+  use ExUnit.Case, async: false
 
   alias Axon.App.Setup.MdnsServer
 
@@ -10,7 +11,7 @@ defmodule Axon.App.Setup.MdnsServerTest do
 
   setup do
     # Start a separate instance for testing to not interfere with the global one
-    {:ok, pid} = GenServer.start_link(MdnsServer, [engine: MockEngine])
+    {:ok, pid} = GenServer.start_link(MdnsServer, engine: MockEngine)
     {:ok, server: pid}
   end
 

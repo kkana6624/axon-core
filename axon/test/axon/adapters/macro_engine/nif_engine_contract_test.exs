@@ -31,7 +31,7 @@ defmodule Axon.Adapters.MacroEngine.NifEngineContractTest do
       %{"action" => "wait", "value" => 10},
       %{"action" => "up", "key" => "VK_A"}
     ]
-    
+
     if :os.type() == {:win32, :nt} do
       assert :ok = NifEngine.execute_sequence(sequence)
     end
@@ -41,6 +41,7 @@ defmodule Axon.Adapters.MacroEngine.NifEngineContractTest do
     sequence = [
       %{"action" => "tap", "key" => "INVALID"}
     ]
+
     assert {:error, :config_invalid, _} = NifEngine.execute_sequence(sequence)
   end
 
@@ -56,15 +57,16 @@ defmodule Axon.Adapters.MacroEngine.NifEngineContractTest do
       for key_name <- rust_keys do
         # If it's a known key, preparing should not fail with :invalid_key
         sequence = [%{"action" => "tap", "key" => key_name}]
-        
+
         # We check if NifEngine can prepare it
         res = NifEngine.execute_sequence(sequence)
-        
+
         # It should either be :ok or an engine error, but NOT config_invalid (mapping error)
         case res do
-          {:error, :config_invalid, msg} -> 
+          {:error, :config_invalid, msg} ->
             flunk("Key '#{key_name}' is not mapped in NifEngine: #{msg}")
-          _ -> 
+
+          _ ->
             :ok
         end
       end

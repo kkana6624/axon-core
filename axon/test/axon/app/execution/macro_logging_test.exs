@@ -123,7 +123,8 @@ defmodule Axon.App.Execution.MacroLoggingTest do
                           "error_code" => "E_ENGINE_FAILURE",
                           "message" => "engine failure",
                           "request_id" => "r2"
-                        }}, 1_000
+                        }},
+                       1_000
       end)
 
     assert log =~ "macro_finished"

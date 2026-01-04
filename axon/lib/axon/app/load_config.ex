@@ -101,7 +101,12 @@ defmodule Axon.App.LoadConfig do
               {:halt,
                {:error,
                 {:duplicate_button_id,
-                 %{profile: profile_name, button_id: button_id, first_index: first_idx, second_index: idx}}}}
+                 %{
+                   profile: profile_name,
+                   button_id: button_id,
+                   first_index: first_idx,
+                   second_index: idx
+                 }}}}
 
             :error ->
               {:cont, Map.put(seen, button_id, idx)}
@@ -139,40 +144,45 @@ defmodule Axon.App.LoadConfig do
     if length(sequence) > @sequence_limit do
       {:error,
        {:sequence_too_long,
-        %{profile: profile_name, button_id: button_id, length: length(sequence), limit: @sequence_limit}}}
+        %{
+          profile: profile_name,
+          button_id: button_id,
+          length: length(sequence),
+          limit: @sequence_limit
+        }}}
     else
-    result =
-      sequence
-      |> Enum.with_index()
-      |> Enum.reduce_while(0, fn {step, idx}, wait_total_ms ->
-        case validate_step_result(profile_name, button_id, idx, step, allowed_keys) do
-          {:ok, wait_inc_ms} ->
-            new_total = wait_total_ms + wait_inc_ms
+      result =
+        sequence
+        |> Enum.with_index()
+        |> Enum.reduce_while(0, fn {step, idx}, wait_total_ms ->
+          case validate_step_result(profile_name, button_id, idx, step, allowed_keys) do
+            {:ok, wait_inc_ms} ->
+              new_total = wait_total_ms + wait_inc_ms
 
-            if new_total > 30_000 do
-              {:halt,
-               {:error,
-                {:wait_total_exceeded,
-                 %{
-                   profile: profile_name,
-                   button_id: button_id,
-                   sequence_index: idx,
-                   limit_ms: 30_000,
-                   total_ms: new_total
-                 }}}}
-            else
-              {:cont, new_total}
-            end
+              if new_total > 30_000 do
+                {:halt,
+                 {:error,
+                  {:wait_total_exceeded,
+                   %{
+                     profile: profile_name,
+                     button_id: button_id,
+                     sequence_index: idx,
+                     limit_ms: 30_000,
+                     total_ms: new_total
+                   }}}}
+              else
+                {:cont, new_total}
+              end
 
-          {:error, _} = err ->
-            {:halt, err}
-        end
-      end)
+            {:error, _} = err ->
+              {:halt, err}
+          end
+        end)
 
-    case result do
-      n when is_integer(n) -> :ok
-      {:error, _} = err -> err
-    end
+      case result do
+        n when is_integer(n) -> :ok
+        {:error, _} = err -> err
+      end
     end
   end
 
@@ -217,13 +227,17 @@ defmodule Axon.App.LoadConfig do
 
   defp validate_wait_step(profile_name, button_id, idx, step) do
     if is_binary(get_in(step, ["key"])) do
-      {:error, {:invalid_wait_has_key, %{profile: profile_name, button_id: button_id, sequence_index: idx}}}
+      {:error,
+       {:invalid_wait_has_key,
+        %{profile: profile_name, button_id: button_id, sequence_index: idx}}}
     else
       value = get_in(step, ["value"])
 
       cond do
         not is_integer(value) ->
-          {:error, {:invalid_wait_value, %{profile: profile_name, button_id: button_id, sequence_index: idx}}}
+          {:error,
+           {:invalid_wait_value,
+            %{profile: profile_name, button_id: button_id, sequence_index: idx}}}
 
         value < 0 or value > 10_000 ->
           {:error,
@@ -241,7 +255,8 @@ defmodule Axon.App.LoadConfig do
 
     cond do
       not is_binary(key) or key == "" ->
-        {:error, {:missing_key, %{profile: profile_name, button_id: button_id, sequence_index: idx}}}
+        {:error,
+         {:missing_key, %{profile: profile_name, button_id: button_id, sequence_index: idx}}}
 
       not MapSet.member?(allowed_keys, key) ->
         {:error,

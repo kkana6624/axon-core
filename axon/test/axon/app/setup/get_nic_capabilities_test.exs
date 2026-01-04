@@ -10,6 +10,7 @@ defmodule Axon.App.Setup.GetNicCapabilitiesTest do
   end
 
   test "execute/1 returns interfaces from engine" do
-    assert {:ok, [%{"description" => "Mock Wi-Fi"}]} = GetNicCapabilities.execute(engine: MockEngine)
+    assert {:ok, [%{"description" => "Mock Wi-Fi"}]} =
+             GetNicCapabilities.execute(engine: MockEngine)
   end
 end

@@ -8,7 +8,8 @@ defmodule Axon.App.Execution.SingleRunner do
   end
 
   def start_execution(owner_pid, request_id, fun)
-      when is_pid(owner_pid) and is_binary(request_id) and request_id != "" and is_function(fun, 0) do
+      when is_pid(owner_pid) and is_binary(request_id) and request_id != "" and
+             is_function(fun, 0) do
     GenServer.call(__MODULE__, {:start_execution, owner_pid, request_id, fun})
   end
 
@@ -63,7 +64,11 @@ defmodule Axon.App.Execution.SingleRunner do
   end
 
   @impl true
-  def handle_call({:start_execution, owner_pid, request_id, fun}, _from, %{mode: :idle, owner: nil} = state) do
+  def handle_call(
+        {:start_execution, owner_pid, request_id, fun},
+        _from,
+        %{mode: :idle, owner: nil} = state
+      ) do
     min_interval_ms = Application.get_env(:axon, :tap_macro_min_interval_ms, 100)
     now_ms = System.monotonic_time(:millisecond)
 
@@ -72,27 +77,31 @@ defmodule Axon.App.Execution.SingleRunner do
          now_ms - state.last_started_ms < min_interval_ms do
       {:reply, :rate_limited, state}
     else
-    owner_ref = Process.monitor(owner_pid)
+      owner_ref = Process.monitor(owner_pid)
 
-    {:ok, task_pid} = Task.start(fn -> fun.() end)
-    task_ref = Process.monitor(task_pid)
+      {:ok, task_pid} = Task.start(fn -> fun.() end)
+      task_ref = Process.monitor(task_pid)
 
-    {:reply, :ok,
-     %{
-       state
-       | mode: :running,
-         last_owner: owner_pid,
-         last_started_ms: now_ms,
-         owner: owner_pid,
-         owner_ref: owner_ref,
-         task_pid: task_pid,
-         task_ref: task_ref,
-         request_id: request_id
-     }}
+      {:reply, :ok,
+       %{
+         state
+         | mode: :running,
+           last_owner: owner_pid,
+           last_started_ms: now_ms,
+           owner: owner_pid,
+           owner_ref: owner_ref,
+           task_pid: task_pid,
+           task_ref: task_ref,
+           request_id: request_id
+       }}
     end
   end
 
-  def handle_call({:start_execution, _owner_pid, _request_id, _fun}, _from, %{mode: :panic} = state) do
+  def handle_call(
+        {:start_execution, _owner_pid, _request_id, _fun},
+        _from,
+        %{mode: :panic} = state
+      ) do
     {:reply, :panic, state}
   end
 
@@ -101,7 +110,11 @@ defmodule Axon.App.Execution.SingleRunner do
   end
 
   @impl true
-  def handle_call(:panic, _from, %{task_pid: task_pid, task_ref: task_ref, request_id: request_id} = state)
+  def handle_call(
+        :panic,
+        _from,
+        %{task_pid: task_pid, task_ref: task_ref, request_id: request_id} = state
+      )
       when is_pid(task_pid) do
     Process.exit(task_pid, :kill)
 
@@ -113,7 +126,16 @@ defmodule Axon.App.Execution.SingleRunner do
       Process.demonitor(state.owner_ref, [:flush])
     end
 
-    {:reply, {:interrupted, request_id}, %{state | mode: :panic, owner: nil, owner_ref: nil, task_pid: nil, task_ref: nil, request_id: nil}}
+    {:reply, {:interrupted, request_id},
+     %{
+       state
+       | mode: :panic,
+         owner: nil,
+         owner_ref: nil,
+         task_pid: nil,
+         task_ref: nil,
+         request_id: nil
+     }}
   end
 
   def handle_call(:panic, _from, state) do
@@ -140,12 +162,23 @@ defmodule Axon.App.Execution.SingleRunner do
   def handle_call({:release, owner_pid}, _from, %{owner: owner_pid, owner_ref: ref} = state)
       when is_reference(ref) do
     Process.demonitor(ref, [:flush])
+
     if is_reference(state.task_ref) do
       Process.demonitor(state.task_ref, [:flush])
     end
 
     new_mode = if state.mode == :panic, do: :panic, else: :idle
-    {:reply, :ok, %{state | mode: new_mode, owner: nil, owner_ref: nil, task_pid: nil, task_ref: nil, request_id: nil}}
+
+    {:reply, :ok,
+     %{
+       state
+       | mode: new_mode,
+         owner: nil,
+         owner_ref: nil,
+         task_pid: nil,
+         task_ref: nil,
+         request_id: nil
+     }}
   end
 
   def handle_call({:release, _owner_pid}, _from, state) do
@@ -160,7 +193,17 @@ defmodule Axon.App.Execution.SingleRunner do
     end
 
     new_mode = if state.mode == :panic, do: :panic, else: :idle
-    {:noreply, %{state | mode: new_mode, owner: nil, owner_ref: nil, task_pid: nil, task_ref: nil, request_id: nil}}
+
+    {:noreply,
+     %{
+       state
+       | mode: new_mode,
+         owner: nil,
+         owner_ref: nil,
+         task_pid: nil,
+         task_ref: nil,
+         request_id: nil
+     }}
   end
 
   def handle_info({:DOWN, ref, :process, _pid, _reason}, %{task_ref: ref} = state)
@@ -170,7 +213,17 @@ defmodule Axon.App.Execution.SingleRunner do
     end
 
     new_mode = if state.mode == :panic, do: :panic, else: :idle
-    {:noreply, %{state | mode: new_mode, owner: nil, owner_ref: nil, task_pid: nil, task_ref: nil, request_id: nil}}
+
+    {:noreply,
+     %{
+       state
+       | mode: new_mode,
+         owner: nil,
+         owner_ref: nil,
+         task_pid: nil,
+         task_ref: nil,
+         request_id: nil
+     }}
   end
 
   def handle_info(_msg, state), do: {:noreply, state}

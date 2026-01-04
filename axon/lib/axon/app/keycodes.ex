@@ -52,7 +52,10 @@ defmodule Axon.App.Keycodes do
     Path.expand("priv/keycodes.json", File.cwd!())
   end
 
-  @spec check_file(Path.t()) :: :ok | {:error, {:diff, expected :: String.t(), actual :: String.t()}} | {:error, {:read_error, Path.t(), term()}}
+  @spec check_file(Path.t()) ::
+          :ok
+          | {:error, {:diff, expected :: String.t(), actual :: String.t()}}
+          | {:error, {:read_error, Path.t(), term()}}
   def check_file(path \\ default_path()) when is_binary(path) do
     case File.read(path) do
       {:ok, actual} ->

@@ -25,7 +25,8 @@ defmodule Axon.Adapters.Config.KeycodesGateway do
       valid_keys =
         Enum.reduce_while(keys, MapSet.new(), fn
           %{"name" => name}, acc when is_binary(name) -> {:cont, MapSet.put(acc, name)}
-          name, acc when is_binary(name) -> {:cont, MapSet.put(acc, name)} # Backward compat
+          # Backward compat
+          name, acc when is_binary(name) -> {:cont, MapSet.put(acc, name)}
           _, _ -> {:halt, :error}
         end)
 

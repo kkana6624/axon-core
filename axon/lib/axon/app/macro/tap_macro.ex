@@ -19,9 +19,9 @@ defmodule Axon.App.Macro.TapMacro do
           required(:profile) => String.t(),
           required(:button_id) => String.t(),
           required(:request_id) => String.t(),
-      required(:engine) => module(),
-      required(:clock) => module(),
-      required(:sequence) => list(map())
+          required(:engine) => module(),
+          required(:clock) => module(),
+          required(:sequence) => list(map())
         }
 
   def call(payload, opts \\ [])
@@ -48,14 +48,17 @@ defmodule Axon.App.Macro.TapMacro do
 
   def preflight(payload, opts) when is_map(payload) do
     # Support both config_provider (new) and config_loader (legacy)
-    provider = Keyword.get(opts, :config_provider) || Keyword.get(opts, :config_loader) || config_provider()
-    
+    provider =
+      Keyword.get(opts, :config_provider) || Keyword.get(opts, :config_loader) ||
+        config_provider()
+
     engine =
       Keyword.get(
         opts,
         :engine,
         Application.get_env(:axon, :macro_engine_module, Axon.Adapters.MacroEngine.EnvEngine)
       )
+
     clock = Keyword.get(opts, :clock, Axon.Adapters.Clock.ProcessClock)
 
     request_id = Map.get(payload, "request_id")
@@ -112,7 +115,10 @@ defmodule Axon.App.Macro.TapMacro do
   end
 
   @spec execute(exec_spec()) :: result_payload()
-  def execute(%{profile: profile, button_id: button_id, request_id: request_id, engine: engine} = exec_spec)
+  def execute(
+        %{profile: profile, button_id: button_id, request_id: request_id, engine: engine} =
+          exec_spec
+      )
       when is_binary(profile) and is_binary(button_id) and is_binary(request_id) do
     sequence = Map.get(exec_spec, :sequence, [])
     clock = Map.get(exec_spec, :clock)
@@ -186,7 +192,14 @@ defmodule Axon.App.Macro.TapMacro do
 
   defp execute_sequence(_sequence, _engine, _clock, _profile, _button_id, _request_id), do: :ok
 
-  defp execute_step(%{"action" => "wait", "value" => value}, _engine, clock, _profile, _button_id, _request_id)
+  defp execute_step(
+         %{"action" => "wait", "value" => value},
+         _engine,
+         clock,
+         _profile,
+         _button_id,
+         _request_id
+       )
        when is_integer(value) and value >= 0 do
     _ = Code.ensure_loaded(clock)
 
@@ -199,7 +212,14 @@ defmodule Axon.App.Macro.TapMacro do
     _ -> :ok
   end
 
-  defp execute_step(%{"action" => action, "key" => key}, engine, _clock, profile, button_id, request_id)
+  defp execute_step(
+         %{"action" => action, "key" => key},
+         engine,
+         _clock,
+         profile,
+         button_id,
+         request_id
+       )
        when action in ["down", "up", "tap"] and is_binary(key) and key != "" do
     _ = Code.ensure_loaded(engine)
 
@@ -274,7 +294,11 @@ defmodule Axon.App.Macro.TapMacro do
     {:error, :engine_failure, "engine failure"}
   end
 
-  defp validate_payload(%{"profile" => profile, "button_id" => button_id, "request_id" => request_id})
+  defp validate_payload(%{
+         "profile" => profile,
+         "button_id" => button_id,
+         "request_id" => request_id
+       })
        when is_binary(profile) and profile != "" and is_binary(button_id) and button_id != "" and
               is_binary(request_id) and request_id != "" do
     :ok

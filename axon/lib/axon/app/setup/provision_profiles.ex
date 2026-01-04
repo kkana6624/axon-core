@@ -19,8 +19,7 @@ defmodule Axon.App.Setup.ProvisionProfiles do
 
   defp provision_sample(target_path, sample_path) do
     if is_binary(target_path) and target_path != "" and
-       is_binary(sample_path) and File.exists?(sample_path) do
-
+         is_binary(sample_path) and File.exists?(sample_path) do
       File.mkdir_p!(Path.dirname(target_path))
       File.copy!(sample_path, target_path)
       {:ok, target_path}
